@@ -170,3 +170,103 @@ local function UpdateVignette(count)
         vignetteFrame:Show()
     end
 end
+
+--------------------------------------------------------------
+-- Threat counter (floating, draggable)
+--------------------------------------------------------------
+
+local counterFrame
+
+local function CreateCounter()
+    counterFrame = CreateFrame("Frame", "EyesOnMeCounter", UIParent, "BackdropTemplate")
+    counterFrame:SetSize(64, 32)
+    counterFrame:SetPoint("TOP", UIParent, "TOP", 0, -100)
+    counterFrame:SetFrameStrata("HIGH")
+    counterFrame:SetClampedToScreen(true)
+    counterFrame:EnableMouse(true)
+    counterFrame:SetMovable(true)
+
+    counterFrame:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    counterFrame:SetBackdropColor(0.15, 0.0, 0.0, 0.85)
+    counterFrame:SetBackdropBorderColor(0.6, 0.0, 0.0, 1)
+
+    -- Eye icon
+    local icon = counterFrame:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(20, 20)
+    icon:SetPoint("LEFT", 6, 0)
+    icon:SetTexture("Interface\\Icons\\Spell_Shadow_EyeOfKilrogg")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    counterFrame.icon = icon
+
+    -- Count text
+    local text = counterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    text:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+    text:SetTextColor(1, 0.2, 0.2)
+    text:SetText("0")
+    counterFrame.text = text
+
+    -- Drag handling
+    counterFrame:RegisterForDrag("LeftButton")
+    counterFrame:SetScript("OnDragStart", function(self)
+        if not EyesOnMeDB.lockCounter then
+            self:StartMoving()
+        end
+    end)
+    counterFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local point, _, relPoint, x, y = self:GetPoint()
+        EyesOnMeDB.counterPos = { point = point, relPoint = relPoint, x = x, y = y }
+    end)
+
+    -- Tooltip
+    counterFrame:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("EyesOnMe", 0.8, 0.2, 0.2)
+        GameTooltip:AddLine(" ")
+        local count = EyesOnMe:GetThreatCount()
+        if count > 0 then
+            GameTooltip:AddLine(count .. " enemy player(s) targeting you", 1, 0.3, 0.3)
+            for _, info in pairs(EyesOnMe:GetTargeters()) do
+                local color = RAID_CLASS_COLORS[info.class]
+                if color then
+                    GameTooltip:AddLine("  " .. info.name, color.r, color.g, color.b)
+                else
+                    GameTooltip:AddLine("  " .. info.name, 0.7, 0.7, 0.7)
+                end
+            end
+        else
+            GameTooltip:AddLine("No enemies targeting you", 0.5, 0.5, 0.5)
+        end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
+        GameTooltip:Show()
+    end)
+    counterFrame:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    -- Restore position
+    if EyesOnMeDB.counterPos then
+        local pos = EyesOnMeDB.counterPos
+        counterFrame:ClearAllPoints()
+        counterFrame:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
+    end
+
+    counterFrame:Hide() -- Hidden when count = 0
+end
+
+local function UpdateCounter(count)
+    if not EyesOnMeDB.showCounter or not counterFrame then return end
+
+    if count > 0 then
+        counterFrame.text:SetText(count)
+        counterFrame:Show()
+    else
+        counterFrame:Hide()
+    end
+end
