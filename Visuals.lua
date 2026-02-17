@@ -74,3 +74,99 @@ local function HideAllBadges()
         badge:Hide()
     end
 end
+
+--------------------------------------------------------------
+-- Red vignette overlay
+--------------------------------------------------------------
+
+local vignetteFrame
+local vignetteTarget = 0
+local vignetteCurrent = 0
+local VIGNETTE_FADE_SPEED = 3.0 -- alpha units per second
+
+local function CreateVignette()
+    vignetteFrame = CreateFrame("Frame", "EyesOnMeVignette", UIParent)
+    vignetteFrame:SetAllPoints(UIParent)
+    vignetteFrame:SetFrameStrata("BACKGROUND")
+    vignetteFrame:SetFrameLevel(0)
+    vignetteFrame:EnableMouse(false)
+
+    -- Four edge textures (top, bottom, left, right) with gradient
+    local edgeSize = 128
+
+    -- Top edge
+    local top = vignetteFrame:CreateTexture(nil, "BACKGROUND")
+    top:SetPoint("TOPLEFT")
+    top:SetPoint("TOPRIGHT")
+    top:SetHeight(edgeSize)
+    top:SetColorTexture(0.4, 0.0, 0.0, 1.0)
+    top:SetGradient("VERTICAL", CreateColor(0.4, 0.0, 0.0, 0.0), CreateColor(0.4, 0.0, 0.0, 1.0))
+    vignetteFrame.top = top
+
+    -- Bottom edge
+    local bottom = vignetteFrame:CreateTexture(nil, "BACKGROUND")
+    bottom:SetPoint("BOTTOMLEFT")
+    bottom:SetPoint("BOTTOMRIGHT")
+    bottom:SetHeight(edgeSize)
+    bottom:SetColorTexture(0.4, 0.0, 0.0, 1.0)
+    bottom:SetGradient("VERTICAL", CreateColor(0.4, 0.0, 0.0, 1.0), CreateColor(0.4, 0.0, 0.0, 0.0))
+    vignetteFrame.bottom = bottom
+
+    -- Left edge
+    local left = vignetteFrame:CreateTexture(nil, "BACKGROUND")
+    left:SetPoint("TOPLEFT")
+    left:SetPoint("BOTTOMLEFT")
+    left:SetWidth(edgeSize)
+    left:SetColorTexture(0.4, 0.0, 0.0, 1.0)
+    left:SetGradient("HORIZONTAL", CreateColor(0.4, 0.0, 0.0, 1.0), CreateColor(0.4, 0.0, 0.0, 0.0))
+    vignetteFrame.left = left
+
+    -- Right edge
+    local right = vignetteFrame:CreateTexture(nil, "BACKGROUND")
+    right:SetPoint("TOPRIGHT")
+    right:SetPoint("BOTTOMRIGHT")
+    right:SetWidth(edgeSize)
+    right:SetColorTexture(0.4, 0.0, 0.0, 1.0)
+    right:SetGradient("HORIZONTAL", CreateColor(0.4, 0.0, 0.0, 0.0), CreateColor(0.4, 0.0, 0.0, 1.0))
+    vignetteFrame.right = right
+
+    vignetteFrame:SetAlpha(0)
+    vignetteFrame:Hide()
+
+    -- Smooth fade OnUpdate
+    vignetteFrame:SetScript("OnUpdate", function(self, elapsed)
+        if math.abs(vignetteCurrent - vignetteTarget) < 0.01 then
+            vignetteCurrent = vignetteTarget
+            if vignetteCurrent <= 0 then
+                self:Hide()
+            end
+        else
+            local speed = VIGNETTE_FADE_SPEED * elapsed
+            if vignetteCurrent < vignetteTarget then
+                vignetteCurrent = math.min(vignetteCurrent + speed, vignetteTarget)
+            else
+                vignetteCurrent = math.max(vignetteCurrent - speed, vignetteTarget)
+            end
+        end
+        self:SetAlpha(vignetteCurrent)
+    end)
+end
+
+local function UpdateVignette(count)
+    if not EyesOnMeDB.showVignette or not vignetteFrame then return end
+
+    local intensity = EyesOnMeDB.vignetteIntensity or 1.0
+    if count <= 0 then
+        vignetteTarget = 0
+    elseif count == 1 then
+        vignetteTarget = 0.15 * intensity
+    elseif count <= 3 then
+        vignetteTarget = 0.3 * intensity
+    else
+        vignetteTarget = 0.5 * intensity
+    end
+
+    if vignetteTarget > 0 then
+        vignetteFrame:Show()
+    end
+end
