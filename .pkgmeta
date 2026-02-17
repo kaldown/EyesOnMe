@@ -1,0 +1,22 @@
+package-as: EyesOnMe
+license-output: LICENSE
+
+externals:
+  Libs/LibStub: https://repos.wowace.com/wow/libstub/tags/1.0
+  Libs/CallbackHandler-1.0: https://repos.wowace.com/wow/callbackhandler/trunk/CallbackHandler-1.0
+  Libs/LibDataBroker-1.1: https://github.com/kaldown/LibDataBroker-1.1
+  Libs/LibDBIcon-1.0: https://github.com/kaldown/LibDBIcon-1.0
+
+ignore:
+  - .git
+  - .github
+  - .claude
+  - docs
+  - screenshots
+  - Makefile
+  - "*.md"
+  - .DS_Store
+  - .idea
+  - .vscode
+
+enable-nolib-creation: no

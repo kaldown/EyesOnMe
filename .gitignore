@@ -1,0 +1,24 @@
+# Local development files
+.claude/
+CLAUDE.md
+docs/plans/
+**/PROMPT*.md
+**/*-design.md
+**/*-impl.md
+**/*-brainstorm.md
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Libraries (fetched via .pkgmeta externals)
+Libs/
+
+# Packager output
+.release/

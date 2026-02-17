@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clean up draft releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "Cleaning up draft releases for tag: $TAG_NAME"
+
+          gh release list --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName' | while read -r draft_tag; do
+            if [ "$draft_tag" = "$TAG_NAME" ]; then
+              echo "Deleting draft release for $draft_tag"
+              gh release delete "$draft_tag" --yes || true
+            fi
+          done
+
+      - name: Package and Release
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
