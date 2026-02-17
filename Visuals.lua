@@ -270,3 +270,73 @@ local function UpdateCounter(count)
         counterFrame:Hide()
     end
 end
+
+--------------------------------------------------------------
+-- Sound alerts
+--------------------------------------------------------------
+
+local ALERT_SOUND = SOUNDKIT.RAID_WARNING or 8959
+
+local function PlayAlertSound()
+    if EyesOnMeDB.soundAlerts then
+        PlaySound(ALERT_SOUND, "Master")
+    end
+end
+
+--------------------------------------------------------------
+-- Init visuals (called from Core.lua ADDON_LOADED)
+--------------------------------------------------------------
+
+function EyesOnMe:InitVisuals()
+    CreateVignette()
+    CreateCounter()
+end
+
+--------------------------------------------------------------
+-- Core callbacks (override stubs in Core.lua)
+--------------------------------------------------------------
+
+function EyesOnMe:OnTargeterAdded(unit, info)
+    ShowBadge(unit)
+end
+
+function EyesOnMe:OnTargeterRemoved(unit, info)
+    HideBadge(unit)
+end
+
+function EyesOnMe:OnThreatCountChanged(oldCount, newCount)
+    UpdateCounter(newCount)
+    UpdateVignette(newCount)
+
+    -- Sound alert: transition from 0 to 1+
+    if oldCount == 0 and newCount > 0 then
+        PlayAlertSound()
+    end
+end
+
+function EyesOnMe:OnEnabledChanged(enabled)
+    if not enabled then
+        HideAllBadges()
+        UpdateCounter(0)
+        UpdateVignette(0)
+    end
+end
+
+--------------------------------------------------------------
+-- Refresh all visuals (for settings changes)
+--------------------------------------------------------------
+
+function EyesOnMe:RefreshVisuals()
+    local count = self:GetThreatCount()
+    UpdateCounter(count)
+    UpdateVignette(count)
+
+    -- Refresh badges
+    if EyesOnMeDB.showBadges then
+        for unit in pairs(self:GetTargeters()) do
+            ShowBadge(unit)
+        end
+    else
+        HideAllBadges()
+    end
+end
