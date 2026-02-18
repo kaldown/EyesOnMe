@@ -329,6 +329,106 @@ local function UpdateCounter(count)
 end
 
 --------------------------------------------------------------
+-- Friendly counter (floating, draggable)
+--------------------------------------------------------------
+
+local friendlyCounterFrame
+
+local function CreateFriendlyCounter()
+    friendlyCounterFrame = CreateFrame("Frame", "EyesOnMeFriendlyCounter", UIParent, "BackdropTemplate")
+    friendlyCounterFrame:SetSize(64, 32)
+    friendlyCounterFrame:SetPoint("TOP", UIParent, "TOP", 0, -140)
+    friendlyCounterFrame:SetFrameStrata("HIGH")
+    friendlyCounterFrame:SetClampedToScreen(true)
+    friendlyCounterFrame:EnableMouse(true)
+    friendlyCounterFrame:SetMovable(true)
+
+    friendlyCounterFrame:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    friendlyCounterFrame:SetBackdropColor(0.0, 0.1, 0.15, 0.85)
+    friendlyCounterFrame:SetBackdropBorderColor(0.0, 0.4, 0.5, 1)
+
+    -- Friendly icon
+    local icon = friendlyCounterFrame:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(20, 20)
+    icon:SetPoint("LEFT", 6, 0)
+    icon:SetTexture("Interface\\Icons\\Spell_Holy_FlashHeal")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    friendlyCounterFrame.icon = icon
+
+    -- Count text
+    local text = friendlyCounterFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    text:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+    text:SetTextColor(0.2, 0.8, 0.9)
+    text:SetText("0")
+    friendlyCounterFrame.text = text
+
+    -- Drag handling
+    friendlyCounterFrame:RegisterForDrag("LeftButton")
+    friendlyCounterFrame:SetScript("OnDragStart", function(self)
+        if not EyesOnMeDB.lockFriendlyCounter then
+            self:StartMoving()
+        end
+    end)
+    friendlyCounterFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local point, _, relPoint, x, y = self:GetPoint()
+        EyesOnMeDB.friendlyCounterPos = { point = point, relPoint = relPoint, x = x, y = y }
+    end)
+
+    -- Tooltip
+    friendlyCounterFrame:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:AddLine("EyesOnMe - Friendly", 0.2, 0.8, 0.9)
+        GameTooltip:AddLine(" ")
+        local count = EyesOnMe:GetFriendlyCount()
+        if count > 0 then
+            GameTooltip:AddLine(count .. " friendly player(s) targeting you", 0.3, 0.9, 1.0)
+            for _, info in pairs(EyesOnMe:GetFriendlyTargeters()) do
+                local color = RAID_CLASS_COLORS[info.class]
+                if color then
+                    GameTooltip:AddLine("  " .. info.name, color.r, color.g, color.b)
+                else
+                    GameTooltip:AddLine("  " .. info.name, 0.7, 0.7, 0.7)
+                end
+            end
+        else
+            GameTooltip:AddLine("No friendlies targeting you", 0.5, 0.5, 0.5)
+        end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
+        GameTooltip:Show()
+    end)
+    friendlyCounterFrame:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    -- Restore position
+    if EyesOnMeDB.friendlyCounterPos then
+        local pos = EyesOnMeDB.friendlyCounterPos
+        friendlyCounterFrame:ClearAllPoints()
+        friendlyCounterFrame:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
+    end
+
+    friendlyCounterFrame:Hide()
+end
+
+local function UpdateFriendlyCounter(count)
+    if not EyesOnMeDB.showFriendlyCounter or not friendlyCounterFrame then return end
+
+    if count > 0 then
+        friendlyCounterFrame.text:SetText(count)
+        friendlyCounterFrame:Show()
+    else
+        friendlyCounterFrame:Hide()
+    end
+end
+
+--------------------------------------------------------------
 -- Sound alerts
 --------------------------------------------------------------
 
@@ -347,6 +447,7 @@ end
 function EyesOnMe:InitVisuals()
     CreateVignette()
     CreateCounter()
+    CreateFriendlyCounter()
 end
 
 --------------------------------------------------------------
@@ -377,6 +478,7 @@ function EyesOnMe:OnEnabledChanged(enabled)
         UpdateCounter(0)
         UpdateVignette(0)
         HideAllFriendlyBadges()
+        UpdateFriendlyCounter(0)
     end
 end
 
@@ -391,7 +493,12 @@ end
 function EyesOnMe:OnFriendlyEnabledChanged(enabled)
     if not enabled then
         HideAllFriendlyBadges()
+        UpdateFriendlyCounter(0)
     end
+end
+
+function EyesOnMe:OnFriendlyCountChanged(oldCount, newCount)
+    UpdateFriendlyCounter(newCount)
 end
 
 --------------------------------------------------------------
@@ -422,4 +529,7 @@ function EyesOnMe:RefreshVisuals()
     else
         HideAllFriendlyBadges()
     end
+
+    -- Refresh friendly counter
+    UpdateFriendlyCounter(self:GetFriendlyCount())
 end
