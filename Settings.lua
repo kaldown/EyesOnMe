@@ -36,6 +36,10 @@ local dataObject = LDB:NewDataObject("EyesOnMe", {
         if count > 0 then
             tooltip:AddLine("Threats: |cFFFF3333" .. count .. "|r", 1, 1, 1)
         end
+        local friendlyCount = EyesOnMe:GetFriendlyCount()
+        if friendlyCount > 0 then
+            tooltip:AddLine("Friendlies: |cFF33CCDD" .. friendlyCount .. "|r", 1, 1, 1)
+        end
         tooltip:AddLine(" ")
         tooltip:AddLine("|cFFFFFFFFLeft-click:|r Toggle ON/OFF", 0.7, 0.7, 0.7)
         tooltip:AddLine("|cFFFFFFFFRight-click:|r Settings", 0.7, 0.7, 0.7)
@@ -84,7 +88,7 @@ end
 
 local function CreateSettingsPanel()
     settingsFrame = CreateFrame("Frame", "EyesOnMeSettings", UIParent, "BackdropTemplate")
-    settingsFrame:SetSize(280, 300)
+    settingsFrame:SetSize(280, 420)
     settingsFrame:SetPoint("CENTER")
     settingsFrame:SetFrameStrata("DIALOG")
     settingsFrame:SetMovable(true)
@@ -114,8 +118,13 @@ local function CreateSettingsPanel()
     local closeBtn = CreateFrame("Button", nil, settingsFrame, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", -2, -2)
 
-    -- Checkboxes
-    local y = -40
+    -- === Enemy Tracking Section ===
+    local enemyHeader = settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    enemyHeader:SetPoint("TOPLEFT", 16, -38)
+    enemyHeader:SetText("Enemy Tracking")
+    enemyHeader:SetTextColor(1, 0.3, 0.3)
+
+    local y = -55
     CreateCheckbox(settingsFrame, "Enable addon", "enabled", 16, y, function(checked)
         EyesOnMe:SetEnabled(checked)
     end)
@@ -133,6 +142,24 @@ local function CreateSettingsPanel()
 
     -- Vignette intensity slider
     CreateSlider(settingsFrame, "Vignette intensity", "vignetteIntensity", 50, y, 0.1, 1.0, 0.05)
+    y = y - 50
+
+    -- === Friendly Tracking Section ===
+    local friendlyHeader = settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    friendlyHeader:SetPoint("TOPLEFT", 16, y)
+    friendlyHeader:SetText("Friendly Tracking")
+    friendlyHeader:SetTextColor(0.2, 0.8, 0.9)
+
+    y = y - 17
+    CreateCheckbox(settingsFrame, "Track friendly targeting", "friendlyEnabled", 16, y, function(checked)
+        EyesOnMe:SetFriendlyEnabled(checked)
+    end)
+    y = y - 30
+    CreateCheckbox(settingsFrame, "Show friendly badges", "showFriendlyBadges", 16, y)
+    y = y - 30
+    CreateCheckbox(settingsFrame, "Show friendly counter", "showFriendlyCounter", 16, y)
+    y = y - 30
+    CreateCheckbox(settingsFrame, "Lock friendly counter", "lockFriendlyCounter", 16, y)
 
     tinsert(UISpecialFrames, "EyesOnMeSettings")
 end
