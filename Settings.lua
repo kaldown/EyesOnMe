@@ -11,12 +11,17 @@ local LDBIcon = LibStub("LibDBIcon-1.0")
 local dataObject = LDB:NewDataObject("EyesOnMe", {
     type = "launcher",
     icon = "Interface\\Icons\\Spell_Shadow_EyeOfKilrogg",
-    OnClick = function(_, button)
+    OnClick = function(self, button)
         if button == "LeftButton" then
             EyesOnMe:Toggle()
             local status = EyesOnMe:IsAddonEnabled()
                 and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
             print("|cFFCC3333[EyesOnMe]|r " .. status)
+            -- Re-trigger LibDBIcon's OnEnter to refresh tooltip with new state
+            local onEnter = self:GetScript("OnEnter")
+            if onEnter then
+                onEnter(self)
+            end
         elseif button == "RightButton" then
             EyesOnMe:ToggleSettings()
         end
