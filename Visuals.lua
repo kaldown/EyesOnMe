@@ -428,6 +428,32 @@ local function CreateFriendlyCounter()
         EyesOnMeDB.friendlyCounterPos = { point = point, relPoint = relPoint, x = x, y = y }
     end)
 
+    -- Click detection (differentiate from drag)
+    local mouseDownX, mouseDownY
+    friendlyCounterFrame:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" then
+            mouseDownX, mouseDownY = GetCursorPosition()
+        end
+    end)
+    friendlyCounterFrame:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and mouseDownX then
+            local x, y = GetCursorPosition()
+            local dx = math.abs(x - mouseDownX)
+            local dy = math.abs(y - mouseDownY)
+            if dx < CLICK_THRESHOLD and dy < CLICK_THRESHOLD then
+                if self.dropdown then
+                    if self.dropdown:IsShown() then
+                        self.dropdown:Hide()
+                    else
+                        EyesOnMe:RefreshFriendlyDropdown()
+                        self.dropdown:Show()
+                    end
+                end
+            end
+            mouseDownX, mouseDownY = nil, nil
+        end
+    end)
+
     -- Tooltip
     friendlyCounterFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -448,7 +474,7 @@ local function CreateFriendlyCounter()
             GameTooltip:AddLine("No friendlies targeting you", 0.5, 0.5, 0.5)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
+        GameTooltip:AddLine("Click for targets, drag to move", 0.5, 0.5, 0.5)
         GameTooltip:Show()
     end)
     friendlyCounterFrame:SetScript("OnLeave", function()
@@ -460,6 +486,23 @@ local function CreateFriendlyCounter()
         local pos = EyesOnMeDB.friendlyCounterPos
         friendlyCounterFrame:ClearAllPoints()
         friendlyCounterFrame:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
+    end
+
+    -- Dropdown panel
+    friendlyCounterFrame.dropdown = CreateDropdownPanel(
+        friendlyCounterFrame, "EyesOnMeFriendlyDropdown",
+        0.0, 0.1, 0.15,   -- bg: dark teal
+        0.0, 0.4, 0.5     -- border: teal
+    )
+    tinsert(UISpecialFrames, "EyesOnMeFriendlyDropdown")
+
+    -- PostClick: close dropdown after targeting
+    for _, row in ipairs(friendlyCounterFrame.dropdown.rows) do
+        row:HookScript("PostClick", function()
+            if friendlyCounterFrame.dropdown:IsShown() then
+                friendlyCounterFrame.dropdown:Hide()
+            end
+        end)
     end
 
     friendlyCounterFrame:Hide()
