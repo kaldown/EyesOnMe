@@ -261,10 +261,12 @@ local function CreateDropdownRow(parent, index)
 end
 
 local function CreateDropdownPanel(parent, panelName, bgR, bgG, bgB, borderR, borderG, borderB)
-    local dropdown = CreateFrame("Frame", panelName, parent, "BackdropTemplate")
+    -- Parent to UIParent (not counter) to avoid secure taint propagation.
+    -- SecureActionButtonTemplate children would make the counter frame protected,
+    -- blocking Show/Hide during combat. Anchor still references the counter.
+    local dropdown = CreateFrame("Frame", panelName, UIParent, "BackdropTemplate")
     dropdown:SetPoint("TOP", parent, "BOTTOM", 0, -2)
-    dropdown:SetFrameStrata("HIGH")
-    dropdown:SetFrameLevel(parent:GetFrameLevel() + 10)
+    dropdown:SetFrameStrata("DIALOG")
     dropdown:SetClampedToScreen(true)
 
     dropdown:SetBackdrop({
