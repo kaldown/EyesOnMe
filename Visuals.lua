@@ -372,6 +372,9 @@ local function UpdateCounter(count)
         counterFrame.text:SetText(count)
         counterFrame:Show()
     else
+        if counterFrame.dropdown then
+            counterFrame.dropdown:Hide()
+        end
         counterFrame:Hide()
     end
 end
@@ -515,6 +518,9 @@ local function UpdateFriendlyCounter(count)
         friendlyCounterFrame.text:SetText(count)
         friendlyCounterFrame:Show()
     else
+        if friendlyCounterFrame.dropdown then
+            friendlyCounterFrame.dropdown:Hide()
+        end
         friendlyCounterFrame:Hide()
     end
 end
@@ -579,6 +585,86 @@ local function CreateDropdownPanel(parent, panelName, bgR, bgG, bgB, borderR, bo
 end
 
 --------------------------------------------------------------
+-- Dropdown entry refresh
+--------------------------------------------------------------
+
+local function PopulateDropdown(dropdown, entries)
+    -- entries = array of { name, class, unit }
+    local count = math.min(#entries, DROPDOWN_MAX_ROWS)
+    local maxWidth = 80 -- min width
+
+    for i = 1, DROPDOWN_MAX_ROWS do
+        local row = dropdown.rows[i]
+        if i <= count then
+            local entry = entries[i]
+            local color = RAID_CLASS_COLORS[entry.class]
+            if color then
+                row.text:SetTextColor(color.r, color.g, color.b)
+            else
+                row.text:SetTextColor(0.7, 0.7, 0.7)
+            end
+            row.text:SetText(entry.name)
+
+            -- Update secure attribute (only out of combat)
+            if not InCombatLockdown() then
+                row:SetAttribute("unit", entry.unit or "none")
+            end
+
+            row:Show()
+
+            -- Track max width
+            local textWidth = row.text:GetStringWidth() + 16
+            if textWidth > maxWidth then
+                maxWidth = textWidth
+            end
+        else
+            row:Hide()
+            if not InCombatLockdown() then
+                row:SetAttribute("unit", "none")
+            end
+        end
+    end
+
+    dropdown.activeCount = count
+
+    -- Resize dropdown to fit
+    local totalHeight = DROPDOWN_PADDING * 2 + count * DROPDOWN_ROW_HEIGHT
+    local totalWidth = maxWidth + DROPDOWN_PADDING * 2
+    if count > 0 then
+        dropdown:SetSize(math.max(totalWidth, dropdown:GetParent():GetWidth()), totalHeight)
+    end
+end
+
+function EyesOnMe:RefreshEnemyDropdown()
+    if not counterFrame or not counterFrame.dropdown then return end
+    local entries = {}
+    for unit, info in pairs(self:GetTargeters()) do
+        entries[#entries + 1] = {
+            name = info.name,
+            class = info.class,
+            unit = unit, -- nameplate unit token
+        }
+    end
+    table.sort(entries, function(a, b) return a.name < b.name end)
+    PopulateDropdown(counterFrame.dropdown, entries)
+end
+
+function EyesOnMe:RefreshFriendlyDropdown()
+    if not friendlyCounterFrame or not friendlyCounterFrame.dropdown then return end
+    local entries = {}
+    for _, info in pairs(self:GetFriendlyTargeters()) do
+        local unit = info.nameplateUnit or info.groupUnit
+        entries[#entries + 1] = {
+            name = info.name,
+            class = info.class,
+            unit = unit,
+        }
+    end
+    table.sort(entries, function(a, b) return a.name < b.name end)
+    PopulateDropdown(friendlyCounterFrame.dropdown, entries)
+end
+
+--------------------------------------------------------------
 -- Sound alerts
 --------------------------------------------------------------
 
@@ -620,10 +706,16 @@ end
 
 function EyesOnMe:OnTargeterAdded(unit, info)
     ShowBadge(unit)
+    if counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
+        self:RefreshEnemyDropdown()
+    end
 end
 
 function EyesOnMe:OnTargeterRemoved(unit, info)
     HideBadge(unit)
+    if counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
+        self:RefreshEnemyDropdown()
+    end
 end
 
 function EyesOnMe:OnThreatCountChanged(oldCount, newCount)
@@ -643,15 +735,29 @@ function EyesOnMe:OnEnabledChanged(enabled)
         UpdateVignette(0)
         HideAllFriendlyBadges()
         UpdateFriendlyCounter(0)
+        if counterFrame and counterFrame.dropdown then
+            counterFrame.dropdown:Hide()
+        end
+        if friendlyCounterFrame and friendlyCounterFrame.dropdown then
+            friendlyCounterFrame.dropdown:Hide()
+        end
     end
 end
 
 function EyesOnMe:OnFriendlyAdded(unit, info)
     ShowFriendlyBadge(unit)
+    if friendlyCounterFrame and friendlyCounterFrame.dropdown
+        and friendlyCounterFrame.dropdown:IsShown() then
+        self:RefreshFriendlyDropdown()
+    end
 end
 
 function EyesOnMe:OnFriendlyRemoved(unit, info)
     HideFriendlyBadge(unit)
+    if friendlyCounterFrame and friendlyCounterFrame.dropdown
+        and friendlyCounterFrame.dropdown:IsShown() then
+        self:RefreshFriendlyDropdown()
+    end
 end
 
 function EyesOnMe:OnFriendlyEnabledChanged(enabled)
@@ -663,6 +769,19 @@ end
 
 function EyesOnMe:OnFriendlyCountChanged(oldCount, newCount)
     UpdateFriendlyCounter(newCount)
+end
+
+function EyesOnMe:OnCombatEnd()
+    -- Refresh dropdown attributes that couldn't be updated during combat
+    self:RefreshEnemyDropdown()
+    self:RefreshFriendlyDropdown()
+end
+
+function EyesOnMe:OnTargetersRefreshed()
+    if not InCombatLockdown() then
+        self:RefreshEnemyDropdown()
+        self:RefreshFriendlyDropdown()
+    end
 end
 
 --------------------------------------------------------------
