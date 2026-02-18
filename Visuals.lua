@@ -448,6 +448,20 @@ function EyesOnMe:InitVisuals()
     CreateVignette()
     CreateCounter()
     CreateFriendlyCounter()
+
+    -- Tooltip hook: show "Target: YOU" on unit tooltips
+    GameTooltip:HookScript("OnTooltipSetUnit", function(tooltip)
+        local _, unitId = tooltip:GetUnit()
+        if unitId and UnitExists(unitId) and UnitIsUnit(unitId .. "target", "player")
+            and not UnitIsUnit(unitId, "player") then
+            if UnitIsEnemy("player", unitId) then
+                tooltip:AddLine("Target: YOU", 1, 0.2, 0.2)
+            elseif UnitIsFriend("player", unitId) then
+                tooltip:AddLine("Target: YOU", 0.2, 0.8, 0.9)
+            end
+            tooltip:Show()
+        end
+    end)
 end
 
 --------------------------------------------------------------
