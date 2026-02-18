@@ -68,6 +68,71 @@ local function HideAllBadges()
 end
 
 --------------------------------------------------------------
+-- Friendly nameplate badge pool
+--------------------------------------------------------------
+
+local friendlyBadges = {} -- [nameplate frame] = badge frame
+
+local function CreateFriendlyBadge(nameplate)
+    local badge = CreateFrame("Frame", nil, nameplate)
+    badge:SetSize(BADGE_SIZE + GLOW_SIZE * 2, BADGE_SIZE + GLOW_SIZE * 2)
+    badge:SetPoint("BOTTOM", nameplate, "TOP", 0, 2)
+    badge:SetFrameLevel(nameplate:GetFrameLevel() + 5)
+
+    -- Circular glow background (teal)
+    local glow = badge:CreateTexture(nil, "BACKGROUND")
+    glow:SetSize(BADGE_SIZE * 2.2, BADGE_SIZE * 2.2)
+    glow:SetPoint("CENTER")
+    glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    glow:SetBlendMode("ADD")
+    glow:SetVertexColor(0.1, 0.6, 0.7, 0.7)
+    badge.glow = glow
+
+    -- Friendly icon
+    local icon = badge:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(BADGE_SIZE, BADGE_SIZE)
+    icon:SetPoint("CENTER")
+    icon:SetTexture("Interface\\Icons\\Spell_Holy_FlashHeal")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    badge.icon = icon
+
+    badge:Hide()
+    return badge
+end
+
+local function GetOrCreateFriendlyBadge(unit)
+    local nameplate = C_NamePlate.GetNamePlateForUnit(unit)
+    if not nameplate then return nil end
+
+    if not friendlyBadges[nameplate] then
+        friendlyBadges[nameplate] = CreateFriendlyBadge(nameplate)
+    end
+    return friendlyBadges[nameplate]
+end
+
+local function ShowFriendlyBadge(unit)
+    if not unit or not EyesOnMeDB.showFriendlyBadges then return end
+    local badge = GetOrCreateFriendlyBadge(unit)
+    if badge then
+        badge:Show()
+    end
+end
+
+local function HideFriendlyBadge(unit)
+    if not unit then return end
+    local nameplate = C_NamePlate.GetNamePlateForUnit(unit)
+    if nameplate and friendlyBadges[nameplate] then
+        friendlyBadges[nameplate]:Hide()
+    end
+end
+
+local function HideAllFriendlyBadges()
+    for _, badge in pairs(friendlyBadges) do
+        badge:Hide()
+    end
+end
+
+--------------------------------------------------------------
 -- Red vignette overlay
 --------------------------------------------------------------
 
@@ -311,6 +376,21 @@ function EyesOnMe:OnEnabledChanged(enabled)
         HideAllBadges()
         UpdateCounter(0)
         UpdateVignette(0)
+        HideAllFriendlyBadges()
+    end
+end
+
+function EyesOnMe:OnFriendlyAdded(unit, info)
+    ShowFriendlyBadge(unit)
+end
+
+function EyesOnMe:OnFriendlyRemoved(unit, info)
+    HideFriendlyBadge(unit)
+end
+
+function EyesOnMe:OnFriendlyEnabledChanged(enabled)
+    if not enabled then
+        HideAllFriendlyBadges()
     end
 end
 
@@ -323,12 +403,23 @@ function EyesOnMe:RefreshVisuals()
     UpdateCounter(count)
     UpdateVignette(count)
 
-    -- Refresh badges
+    -- Refresh enemy badges
     if EyesOnMeDB.showBadges then
         for unit in pairs(self:GetTargeters()) do
             ShowBadge(unit)
         end
     else
         HideAllBadges()
+    end
+
+    -- Refresh friendly badges
+    if EyesOnMeDB.showFriendlyBadges then
+        for _, info in pairs(self:GetFriendlyTargeters()) do
+            if info.nameplateUnit then
+                ShowFriendlyBadge(info.nameplateUnit)
+            end
+        end
+    else
+        HideAllFriendlyBadges()
     end
 end
