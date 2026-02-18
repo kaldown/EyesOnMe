@@ -117,10 +117,8 @@ end
 
 local function AddFriendly(guid, unit, nameplateUnit)
     if friendlyTargetingMe[guid] then
-        -- Update nameplate unit if we now have one
-        if nameplateUnit then
-            friendlyTargetingMe[guid].nameplateUnit = nameplateUnit
-        end
+        -- Always update nameplateUnit (clears stale token when out of nameplate range)
+        friendlyTargetingMe[guid].nameplateUnit = nameplateUnit
         -- Update group unit if this is a party/raid token
         if IsGroupUnit(unit) then
             friendlyTargetingMe[guid].groupUnit = unit

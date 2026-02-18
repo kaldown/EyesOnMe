@@ -88,7 +88,7 @@ end
 
 local function CreateSettingsPanel()
     settingsFrame = CreateFrame("Frame", "EyesOnMeSettings", UIParent, "BackdropTemplate")
-    settingsFrame:SetSize(280, 420)
+    settingsFrame:SetSize(280, 450)
     settingsFrame:SetPoint("CENTER")
     settingsFrame:SetFrameStrata("DIALOG")
     settingsFrame:SetMovable(true)
