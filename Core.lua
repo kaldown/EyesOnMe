@@ -18,7 +18,7 @@ local threatCount = 0
 local POLL_INTERVAL = 0.5
 local pollElapsed = 0
 local friendlyEnabled = true
-local friendlyTargetingMe = {}  -- [guid] = { name, class, guid, nameplateUnit }
+local friendlyTargetingMe = {}  -- [guid] = { name, class, guid, nameplateUnit, groupUnit }
 local friendlyCount = 0
 
 --------------------------------------------------------------
@@ -111,11 +111,19 @@ end
 -- Friendly tracking (GUID-keyed to avoid duplicates)
 --------------------------------------------------------------
 
+local function IsGroupUnit(unit)
+    return unit and (unit:find("^party") or unit:find("^raid")) and true or false
+end
+
 local function AddFriendly(guid, unit, nameplateUnit)
     if friendlyTargetingMe[guid] then
         -- Update nameplate unit if we now have one
         if nameplateUnit then
             friendlyTargetingMe[guid].nameplateUnit = nameplateUnit
+        end
+        -- Update group unit if this is a party/raid token
+        if IsGroupUnit(unit) then
+            friendlyTargetingMe[guid].groupUnit = unit
         end
         return
     end
@@ -128,6 +136,7 @@ local function AddFriendly(guid, unit, nameplateUnit)
         class = class or "UNKNOWN",
         guid = guid,
         nameplateUnit = nameplateUnit,
+        groupUnit = IsGroupUnit(unit) and unit or nil,
     }
 
     local oldCount = friendlyCount
@@ -227,6 +236,8 @@ local function FullScan()
             RemoveFriendly(guid)
         end
     end
+
+    EyesOnMe:OnTargetersRefreshed()
 end
 
 local function ResetAll()
@@ -323,6 +334,8 @@ function EyesOnMe:OnFriendlyAdded(unit, info) end
 function EyesOnMe:OnFriendlyRemoved(unit, info) end
 function EyesOnMe:OnFriendlyCountChanged(oldCount, newCount) end
 function EyesOnMe:OnFriendlyEnabledChanged(enabled) end
+function EyesOnMe:OnCombatEnd() end
+function EyesOnMe:OnTargetersRefreshed() end
 
 --------------------------------------------------------------
 -- Event frame
@@ -337,6 +350,7 @@ eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 eventFrame:RegisterEvent("UNIT_TARGET")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 eventFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
@@ -374,6 +388,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
         if isEnabled then
             FullScan()
         end
+
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        EyesOnMe:OnCombatEnd()
 
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetAll()
