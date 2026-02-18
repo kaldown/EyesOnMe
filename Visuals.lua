@@ -287,6 +287,7 @@ local function CreateDropdownPanel(parent, panelName, bgR, bgG, bgB, borderR, bo
         dropdown.rows[i] = row
     end
 
+    dropdown.anchorParent = parent -- store counter frame ref for width calc
     dropdown.activeCount = 0
     dropdown:Hide()
 
@@ -634,7 +635,8 @@ local function PopulateDropdown(dropdown, entries)
     local totalHeight = DROPDOWN_PADDING * 2 + count * DROPDOWN_ROW_HEIGHT
     local totalWidth = maxWidth + DROPDOWN_PADDING * 2
     if count > 0 then
-        dropdown:SetSize(math.max(totalWidth, dropdown:GetParent():GetWidth()), totalHeight)
+        local minWidth = dropdown.anchorParent and dropdown.anchorParent:GetWidth() or 80
+        dropdown:SetSize(math.max(totalWidth, minWidth), totalHeight)
     end
 end
 
