@@ -1,8 +1,8 @@
 ## Interface: 11503
 ## Title: EyesOnMe
-## Notes: PvP awareness - see which enemy players are targeting you
+## Notes: See which players are targeting you - enemies and friendlies
 ## Author: kaldown
-## Version: @project-version@
+## Version: 0.1.0
 ## IconTexture: Interface\Icons\Spell_Shadow_EyeOfKilrogg
 ## SavedVariables: EyesOnMeDB
 ## X-License: MIT
