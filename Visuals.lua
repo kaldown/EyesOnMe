@@ -284,6 +284,33 @@ local function CreateCounter()
         EyesOnMeDB.counterPos = { point = point, relPoint = relPoint, x = x, y = y }
     end)
 
+    -- Click detection (differentiate from drag)
+    local mouseDownX, mouseDownY
+    counterFrame:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" then
+            mouseDownX, mouseDownY = GetCursorPosition()
+        end
+    end)
+    counterFrame:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and mouseDownX then
+            local x, y = GetCursorPosition()
+            local dx = math.abs(x - mouseDownX)
+            local dy = math.abs(y - mouseDownY)
+            if dx < CLICK_THRESHOLD and dy < CLICK_THRESHOLD then
+                -- It's a click, not a drag
+                if self.dropdown then
+                    if self.dropdown:IsShown() then
+                        self.dropdown:Hide()
+                    else
+                        EyesOnMe:RefreshEnemyDropdown()
+                        self.dropdown:Show()
+                    end
+                end
+            end
+            mouseDownX, mouseDownY = nil, nil
+        end
+    end)
+
     -- Tooltip
     counterFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -304,7 +331,7 @@ local function CreateCounter()
             GameTooltip:AddLine("No enemies targeting you", 0.5, 0.5, 0.5)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
+        GameTooltip:AddLine("Click for targets, drag to move", 0.5, 0.5, 0.5)
         GameTooltip:Show()
     end)
     counterFrame:SetScript("OnLeave", function()
@@ -316,6 +343,23 @@ local function CreateCounter()
         local pos = EyesOnMeDB.counterPos
         counterFrame:ClearAllPoints()
         counterFrame:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
+    end
+
+    -- Dropdown panel
+    counterFrame.dropdown = CreateDropdownPanel(
+        counterFrame, "EyesOnMeEnemyDropdown",
+        0.15, 0.0, 0.0,   -- bg: dark red
+        0.6, 0.0, 0.0     -- border: red
+    )
+    tinsert(UISpecialFrames, "EyesOnMeEnemyDropdown")
+
+    -- PostClick: close dropdown after targeting
+    for _, row in ipairs(counterFrame.dropdown.rows) do
+        row:HookScript("PostClick", function()
+            if counterFrame.dropdown:IsShown() then
+                counterFrame.dropdown:Hide()
+            end
+        end)
     end
 
     counterFrame:Hide() -- Hidden when count = 0
