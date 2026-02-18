@@ -233,6 +233,65 @@ local function UpdateVignette(count)
 end
 
 --------------------------------------------------------------
+-- Clickable dropdown panel (shared factory)
+--------------------------------------------------------------
+
+local function CreateDropdownRow(parent, index)
+    local row = CreateFrame("Button", parent:GetName() .. "Row" .. index,
+        parent, "SecureActionButtonTemplate")
+    row:SetHeight(DROPDOWN_ROW_HEIGHT)
+    row:RegisterForClicks("AnyUp")
+    row:SetAttribute("type", "target")
+    row:SetAttribute("unit", "none")
+
+    -- Name text
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    text:SetPoint("LEFT", 8, 0)
+    text:SetPoint("RIGHT", -8, 0)
+    text:SetJustifyH("LEFT")
+    row.text = text
+
+    -- Hover highlight
+    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(1, 1, 1, 0.1)
+
+    row:Hide()
+    return row
+end
+
+local function CreateDropdownPanel(parent, panelName, bgR, bgG, bgB, borderR, borderG, borderB)
+    local dropdown = CreateFrame("Frame", panelName, parent, "BackdropTemplate")
+    dropdown:SetPoint("TOP", parent, "BOTTOM", 0, -2)
+    dropdown:SetFrameStrata("HIGH")
+    dropdown:SetFrameLevel(parent:GetFrameLevel() + 10)
+    dropdown:SetClampedToScreen(true)
+
+    dropdown:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    dropdown:SetBackdropColor(bgR, bgG, bgB, 0.92)
+    dropdown:SetBackdropBorderColor(borderR, borderG, borderB, 1)
+
+    -- Pre-allocate button pool
+    dropdown.rows = {}
+    for i = 1, DROPDOWN_MAX_ROWS do
+        local row = CreateDropdownRow(dropdown, i)
+        row:SetPoint("TOPLEFT", DROPDOWN_PADDING, -(DROPDOWN_PADDING + (i - 1) * DROPDOWN_ROW_HEIGHT))
+        row:SetPoint("TOPRIGHT", -DROPDOWN_PADDING, -(DROPDOWN_PADDING + (i - 1) * DROPDOWN_ROW_HEIGHT))
+        dropdown.rows[i] = row
+    end
+
+    dropdown.activeCount = 0
+    dropdown:Hide()
+
+    return dropdown
+end
+
+--------------------------------------------------------------
 -- Threat counter (floating, draggable)
 --------------------------------------------------------------
 
@@ -526,69 +585,11 @@ local function UpdateFriendlyCounter(count)
 end
 
 --------------------------------------------------------------
--- Clickable dropdown panel (shared factory)
---------------------------------------------------------------
-
-local function CreateDropdownRow(parent, index)
-    local row = CreateFrame("Button", parent:GetName() .. "Row" .. index,
-        parent, "SecureActionButtonTemplate")
-    row:SetHeight(DROPDOWN_ROW_HEIGHT)
-    row:RegisterForClicks("AnyUp", "AnyDown")
-    row:SetAttribute("type", "target")
-    row:SetAttribute("unit", "none")
-
-    -- Name text
-    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    text:SetPoint("LEFT", 8, 0)
-    text:SetPoint("RIGHT", -8, 0)
-    text:SetJustifyH("LEFT")
-    row.text = text
-
-    -- Hover highlight
-    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
-    highlight:SetAllPoints()
-    highlight:SetColorTexture(1, 1, 1, 0.1)
-
-    row:Hide()
-    return row
-end
-
-local function CreateDropdownPanel(parent, panelName, bgR, bgG, bgB, borderR, borderG, borderB)
-    local dropdown = CreateFrame("Frame", panelName, parent, "BackdropTemplate")
-    dropdown:SetPoint("TOP", parent, "BOTTOM", 0, -2)
-    dropdown:SetFrameStrata("HIGH")
-    dropdown:SetFrameLevel(parent:GetFrameLevel() + 10)
-    dropdown:SetClampedToScreen(true)
-
-    dropdown:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 12,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    dropdown:SetBackdropColor(bgR, bgG, bgB, 0.92)
-    dropdown:SetBackdropBorderColor(borderR, borderG, borderB, 1)
-
-    -- Pre-allocate button pool
-    dropdown.rows = {}
-    for i = 1, DROPDOWN_MAX_ROWS do
-        local row = CreateDropdownRow(dropdown, i)
-        row:SetPoint("TOPLEFT", DROPDOWN_PADDING, -(DROPDOWN_PADDING + (i - 1) * DROPDOWN_ROW_HEIGHT))
-        row:SetPoint("TOPRIGHT", -DROPDOWN_PADDING, -(DROPDOWN_PADDING + (i - 1) * DROPDOWN_ROW_HEIGHT))
-        dropdown.rows[i] = row
-    end
-
-    dropdown.activeCount = 0
-    dropdown:Hide()
-
-    return dropdown
-end
-
---------------------------------------------------------------
 -- Dropdown entry refresh
 --------------------------------------------------------------
 
 local function PopulateDropdown(dropdown, entries)
+    if InCombatLockdown() then return end
     -- entries = array of { name, class, unit }
     local count = math.min(#entries, DROPDOWN_MAX_ROWS)
     local maxWidth = 80 -- min width
@@ -706,14 +707,16 @@ end
 
 function EyesOnMe:OnTargeterAdded(unit, info)
     ShowBadge(unit)
-    if counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
+    if not InCombatLockdown()
+        and counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
         self:RefreshEnemyDropdown()
     end
 end
 
 function EyesOnMe:OnTargeterRemoved(unit, info)
     HideBadge(unit)
-    if counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
+    if not InCombatLockdown()
+        and counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
         self:RefreshEnemyDropdown()
     end
 end
@@ -746,7 +749,8 @@ end
 
 function EyesOnMe:OnFriendlyAdded(unit, info)
     ShowFriendlyBadge(unit)
-    if friendlyCounterFrame and friendlyCounterFrame.dropdown
+    if not InCombatLockdown()
+        and friendlyCounterFrame and friendlyCounterFrame.dropdown
         and friendlyCounterFrame.dropdown:IsShown() then
         self:RefreshFriendlyDropdown()
     end
@@ -754,7 +758,8 @@ end
 
 function EyesOnMe:OnFriendlyRemoved(unit, info)
     HideFriendlyBadge(unit)
-    if friendlyCounterFrame and friendlyCounterFrame.dropdown
+    if not InCombatLockdown()
+        and friendlyCounterFrame and friendlyCounterFrame.dropdown
         and friendlyCounterFrame.dropdown:IsShown() then
         self:RefreshFriendlyDropdown()
     end
@@ -773,13 +778,19 @@ end
 
 function EyesOnMe:OnCombatEnd()
     -- Refresh dropdown attributes that couldn't be updated during combat
-    self:RefreshEnemyDropdown()
-    self:RefreshFriendlyDropdown()
+    if not InCombatLockdown() then
+        self:RefreshEnemyDropdown()
+        self:RefreshFriendlyDropdown()
+    end
 end
 
 function EyesOnMe:OnTargetersRefreshed()
-    if not InCombatLockdown() then
+    if InCombatLockdown() then return end
+    if counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
         self:RefreshEnemyDropdown()
+    end
+    if friendlyCounterFrame and friendlyCounterFrame.dropdown
+        and friendlyCounterFrame.dropdown:IsShown() then
         self:RefreshFriendlyDropdown()
     end
 end
