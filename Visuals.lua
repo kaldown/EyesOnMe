@@ -15,10 +15,13 @@ local function CreateBadge(nameplate)
     badge:SetPoint("BOTTOM", nameplate, "TOP", 0, 2)
     badge:SetFrameLevel(nameplate:GetFrameLevel() + 5)
 
-    -- Red glow background
+    -- Circular glow background
     local glow = badge:CreateTexture(nil, "BACKGROUND")
-    glow:SetAllPoints()
-    glow:SetColorTexture(0.8, 0.1, 0.1, 0.6)
+    glow:SetSize(BADGE_SIZE * 2.2, BADGE_SIZE * 2.2)
+    glow:SetPoint("CENTER")
+    glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    glow:SetBlendMode("ADD")
+    glow:SetVertexColor(0.8, 0.1, 0.1, 0.7)
     badge.glow = glow
 
     -- Eye icon
@@ -28,17 +31,6 @@ local function CreateBadge(nameplate)
     icon:SetTexture("Interface\\Icons\\Spell_Shadow_EyeOfKilrogg")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     badge.icon = icon
-
-    -- Border
-    local border = badge:CreateTexture(nil, "OVERLAY")
-    border:SetPoint("TOPLEFT", icon, "TOPLEFT", -1, 1)
-    border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 1, -1)
-    border:SetColorTexture(0.6, 0.0, 0.0, 0.8)
-    badge.border = border
-
-    -- Ensure icon draws on top of border
-    icon:SetDrawLayer("ARTWORK", 1)
-    border:SetDrawLayer("ARTWORK", 0)
 
     badge:Hide()
     return badge
