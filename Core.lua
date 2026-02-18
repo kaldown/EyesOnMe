@@ -17,6 +17,9 @@ local targetingMe = {}   -- [unitToken] = { name, class, guid }
 local threatCount = 0
 local POLL_INTERVAL = 0.5
 local pollElapsed = 0
+local friendlyEnabled = true
+local friendlyTargetingMe = {}  -- [guid] = { name, class, guid, nameplateUnit }
+local friendlyCount = 0
 
 --------------------------------------------------------------
 -- Defaults
@@ -31,6 +34,11 @@ local defaults = {
     vignetteIntensity = 1.0,
     lockCounter = false,
     counterPos = nil,
+    friendlyEnabled = true,
+    showFriendlyBadges = true,
+    showFriendlyCounter = true,
+    lockFriendlyCounter = false,
+    friendlyCounterPos = nil,
     minimap = { hide = false },
 }
 
@@ -52,6 +60,12 @@ end
 
 local function IsTargetingMe(unit)
     return UnitIsUnit(unit .. "target", "player")
+end
+
+local function IsFriendlyPlayer(unit)
+    return UnitIsPlayer(unit)
+        and UnitIsFriend("player", unit)
+        and not UnitIsUnit(unit, "player")
 end
 
 --------------------------------------------------------------
@@ -93,6 +107,49 @@ local function RemoveTargeter(unit)
     EyesOnMe:OnThreatCountChanged(oldCount, threatCount)
 end
 
+--------------------------------------------------------------
+-- Friendly tracking (GUID-keyed to avoid duplicates)
+--------------------------------------------------------------
+
+local function AddFriendly(guid, unit, nameplateUnit)
+    if friendlyTargetingMe[guid] then
+        -- Update nameplate unit if we now have one
+        if nameplateUnit then
+            friendlyTargetingMe[guid].nameplateUnit = nameplateUnit
+        end
+        return
+    end
+
+    local name = UnitName(unit)
+    local _, class = UnitClass(unit)
+
+    friendlyTargetingMe[guid] = {
+        name = name or "Unknown",
+        class = class or "UNKNOWN",
+        guid = guid,
+        nameplateUnit = nameplateUnit,
+    }
+
+    local oldCount = friendlyCount
+    friendlyCount = friendlyCount + 1
+
+    EyesOnMe:OnFriendlyAdded(nameplateUnit or unit, friendlyTargetingMe[guid])
+    EyesOnMe:OnFriendlyCountChanged(oldCount, friendlyCount)
+end
+
+local function RemoveFriendly(guid)
+    if not friendlyTargetingMe[guid] then return end
+
+    local info = friendlyTargetingMe[guid]
+    friendlyTargetingMe[guid] = nil
+
+    local oldCount = friendlyCount
+    friendlyCount = friendlyCount - 1
+
+    EyesOnMe:OnFriendlyRemoved(info.nameplateUnit, info)
+    EyesOnMe:OnFriendlyCountChanged(oldCount, friendlyCount)
+end
+
 local function CheckUnit(unit)
     if not isEnabled then return end
     if not UnitExists(unit) then
@@ -113,18 +170,61 @@ local function FullScan()
 
     -- Track which units we see this scan
     local seen = {}
+    local friendlySeenGuids = {}
+
     for _, nameplate in ipairs(nameplates) do
         local unit = nameplate.namePlateUnitToken
         if unit then
+            -- Enemy check (existing)
             seen[unit] = true
             CheckUnit(unit)
+
+            -- Friendly check (new)
+            if friendlyEnabled and IsFriendlyPlayer(unit)
+                and IsTargetingMe(unit) then
+                local guid = UnitGUID(unit)
+                if guid then
+                    friendlySeenGuids[guid] = true
+                    AddFriendly(guid, unit, unit)
+                end
+            end
         end
     end
 
-    -- Remove stale entries (nameplate disappeared without event)
+    -- Group unit scan (catches members beyond nameplate range)
+    if friendlyEnabled then
+        local prefix, count
+        if IsInRaid() then
+            prefix, count = "raid", GetNumGroupMembers()
+        elseif IsInGroup() then
+            prefix, count = "party", GetNumSubgroupMembers()
+        end
+        if prefix then
+            for i = 1, count do
+                local unit = prefix .. i
+                if UnitExists(unit) and not UnitIsUnit(unit, "player")
+                    and UnitIsUnit(unit .. "target", "player") then
+                    local guid = UnitGUID(unit)
+                    if guid and not friendlySeenGuids[guid] then
+                        friendlySeenGuids[guid] = true
+                        AddFriendly(guid, unit, nil)
+                    end
+                end
+            end
+        end
+    end
+
+    -- Remove stale enemy entries
     for unit in pairs(targetingMe) do
         if not seen[unit] then
             RemoveTargeter(unit)
+        end
+    end
+
+    -- Remove stale friendly entries
+    for guid in pairs(friendlyTargetingMe) do
+        if not friendlySeenGuids[guid] then
+            RemoveFriendly(guid)
         end
     end
 end
@@ -138,6 +238,16 @@ local function ResetAll()
     threatCount = 0
     if oldCount ~= 0 then
         EyesOnMe:OnThreatCountChanged(oldCount, 0)
+    end
+
+    for guid in pairs(friendlyTargetingMe) do
+        RemoveFriendly(guid)
+    end
+    wipe(friendlyTargetingMe)
+    local oldFriendly = friendlyCount
+    friendlyCount = 0
+    if oldFriendly ~= 0 then
+        EyesOnMe:OnFriendlyCountChanged(oldFriendly, 0)
     end
 end
 
@@ -172,6 +282,35 @@ function EyesOnMe:Toggle()
     self:SetEnabled(not isEnabled)
 end
 
+function EyesOnMe:GetFriendlyCount()
+    return friendlyCount
+end
+
+function EyesOnMe:GetFriendlyTargeters()
+    return friendlyTargetingMe
+end
+
+function EyesOnMe:IsFriendlyTrackingEnabled()
+    return friendlyEnabled
+end
+
+function EyesOnMe:SetFriendlyEnabled(enabled)
+    friendlyEnabled = enabled
+    EyesOnMeDB.friendlyEnabled = enabled
+    if not enabled then
+        for guid in pairs(friendlyTargetingMe) do
+            RemoveFriendly(guid)
+        end
+        wipe(friendlyTargetingMe)
+        local oldCount = friendlyCount
+        friendlyCount = 0
+        if oldCount ~= 0 then
+            EyesOnMe:OnFriendlyCountChanged(oldCount, 0)
+        end
+    end
+    EyesOnMe:OnFriendlyEnabledChanged(enabled)
+end
+
 --------------------------------------------------------------
 -- Event visual stubs (overridden by Visuals.lua)
 --------------------------------------------------------------
@@ -180,6 +319,10 @@ function EyesOnMe:OnTargeterAdded(unit, info) end
 function EyesOnMe:OnTargeterRemoved(unit, info) end
 function EyesOnMe:OnThreatCountChanged(oldCount, newCount) end
 function EyesOnMe:OnEnabledChanged(enabled) end
+function EyesOnMe:OnFriendlyAdded(unit, info) end
+function EyesOnMe:OnFriendlyRemoved(unit, info) end
+function EyesOnMe:OnFriendlyCountChanged(oldCount, newCount) end
+function EyesOnMe:OnFriendlyEnabledChanged(enabled) end
 
 --------------------------------------------------------------
 -- Event frame
@@ -193,11 +336,13 @@ eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 eventFrame:RegisterEvent("UNIT_TARGET")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 eventFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         InitializeDB()
         isEnabled = EyesOnMeDB.enabled
+        friendlyEnabled = EyesOnMeDB.friendlyEnabled
         EyesOnMe:InitVisuals()
         EyesOnMe:InitSettings()
         self:UnregisterEvent("ADDON_LOADED")
@@ -223,6 +368,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
     elseif event == "UNIT_TARGET" then
         if isEnabled and arg1 and arg1:find("^nameplate") then
             CheckUnit(arg1)
+        end
+
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        if isEnabled then
+            FullScan()
         end
 
     elseif event == "PLAYER_ENTERING_WORLD" then
