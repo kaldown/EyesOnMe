@@ -1,8 +1,8 @@
 ## Interface: 11503
 ## Title: EyesOnMe
-## Notes: See which players are targeting you - enemies and friendlies
+## Notes: See which players are targeting you - click to target back
 ## Author: kaldown
-## Version: 0.1.0
+## Version: 0.2.0
 ## IconTexture: Interface\Icons\Spell_Shadow_EyeOfKilrogg
 ## SavedVariables: EyesOnMeDB
 ## X-License: MIT
