@@ -3,9 +3,11 @@
 ## Notes: See which players are targeting you - click to target back
 ## Author: kaldown
 ## Version: 0.2.0
-## IconTexture: Interface\Icons\Spell_Shadow_EyeOfKilrogg
+## IconTexture: Interface\Icons\Spell_Shadow_UnholyFrenzy
 ## SavedVariables: EyesOnMeDB
 ## X-License: MIT
+## X-Curse-Project-ID: 1465117
+## X-Wago-ID: rNkyd3Ka
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua

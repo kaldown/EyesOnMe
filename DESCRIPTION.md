@@ -1,3 +1,5 @@
+[![CurseForge](https://img.shields.io/badge/CurseForge-EyesOnMe-orange)](https://www.curseforge.com/wow/addons/eyesonme)
+[![Wago](https://img.shields.io/badge/Wago-EyesOnMe-c1272d)](https://addons.wago.io/addons/eyesonme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?hosted_button_id=FG4KES3HNPLVG)
 
@@ -5,9 +7,10 @@ If you find this useful, consider [supporting development](https://www.paypal.co
 
 Other addons:
 - [LazyProf](https://www.curseforge.com/wow/addons/lazyprof) - Profession leveling optimizer
-- [VendorSniper](https://www.curseforge.com/wow/addons/vendorsniper) - Vendor restock sniper
 - [CraftLib](https://www.curseforge.com/wow/addons/craftlib) - Recipe database
 - [Silencer](https://www.curseforge.com/wow/addons/silencer-whispers) - Whisper gatekeeper
+- [VendorSniper](https://www.curseforge.com/wow/addons/vendorsniper) - Vendor restock sniper
+- [PickMe](https://www.curseforge.com/wow/addons/pickme) - LFG listing browser
 
 ---
 
@@ -16,8 +19,11 @@ PvP awareness addon for World of Warcraft Classic. EyesOnMe detects enemy player
 ## Features
 
 - **Nameplate badges** - Eye icon with red glow appears above enemy nameplates when they target you
+- **Friendly tracking** - Teal badges on friendly nameplates when party/raid members target you
 - **Red vignette** - Screen-edge red tint that intensifies with the number of threats
 - **Threat counter** - Floating, draggable badge showing how many enemies are targeting you
+- **Friendly counter** - Separate counter for friendly players targeting you
+- **Click-to-target** - Click either counter to open a dropdown and target players directly
 - **Sound alerts** - Audio warning when the first enemy starts targeting you
 - **Minimap button** - Left-click to toggle, right-click for settings
 - **Settings panel** - Toggle each feature independently, adjust vignette intensity
