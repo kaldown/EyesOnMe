@@ -5,7 +5,7 @@
 ## Version: 0.3.0
 ## IconTexture: Interface\Icons\Spell_Shadow_UnholyFrenzy
 ## SavedVariables: EyesOnMeDB
-## X-License: MIT
+## X-License: All Rights Reserved
 ## X-Curse-Project-ID: 1465117
 ## X-Wago-ID: rNkyd3Ka
 
