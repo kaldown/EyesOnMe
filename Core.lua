@@ -212,9 +212,14 @@ local function FullScan()
                 if UnitExists(unit) and not UnitIsUnit(unit, "player")
                     and UnitIsUnit(unit .. "target", "player") then
                     local guid = UnitGUID(unit)
-                    if guid and not friendlySeenGuids[guid] then
-                        friendlySeenGuids[guid] = true
-                        AddFriendly(guid, unit, nil)
+                    if guid then
+                        if not friendlySeenGuids[guid] then
+                            friendlySeenGuids[guid] = true
+                            AddFriendly(guid, unit, nil)
+                        elseif friendlyTargetingMe[guid] then
+                            -- Update group unit for players already seen via nameplate
+                            friendlyTargetingMe[guid].groupUnit = unit
+                        end
                     end
                 end
             end

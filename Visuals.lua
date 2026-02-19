@@ -614,7 +614,7 @@ end
 local function PopulateDropdown(dropdown, entries)
     if InCombatLockdown() then return end
     -- entries = array of { name, class, unit }
-    -- unit: nameplate/group token for direct targeting, or nil for /targetexact fallback
+    -- unit: group token (raid/party) for direct targeting, or nameplate/nil for /targetexact fallback
     local count = math.min(#entries, DROPDOWN_MAX_ROWS)
     local maxWidth = 80 -- min width
 
@@ -631,9 +631,12 @@ local function PopulateDropdown(dropdown, entries)
             row.text:SetText(entry.name)
 
             -- Update secure targeting (only out of combat — guarded by early return above)
-            if entry.unit then
+            -- Use unit-token targeting only for stable group tokens (raid/party);
+            -- nameplate tokens are volatile and go stale during combat.
+            local u = entry.unit
+            if u and (u:find("^raid") or u:find("^party")) then
                 row:SetAttribute("type1", "target")
-                row:SetAttribute("unit", entry.unit)
+                row:SetAttribute("unit", u)
                 row:SetAttribute("macrotext", "")
             else
                 row:SetAttribute("type1", "macro")
@@ -685,7 +688,7 @@ function EyesOnMe:RefreshFriendlyDropdown()
     if not friendlyCounterFrame or not friendlyCounterFrame.dropdown then return end
     local entries = {}
     for _, info in pairs(self:GetFriendlyTargeters()) do
-        local unit = info.nameplateUnit or info.groupUnit
+        local unit = info.groupUnit or info.nameplateUnit
         entries[#entries + 1] = {
             name = info.name,
             class = info.class,
