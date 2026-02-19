@@ -2,7 +2,7 @@
 ## Title: EyesOnMe
 ## Notes: See which players are targeting you - click to target back
 ## Author: kaldown
-## Version: 0.2.0
+## Version: 0.3.0
 ## IconTexture: Interface\Icons\Spell_Shadow_UnholyFrenzy
 ## SavedVariables: EyesOnMeDB
 ## X-License: MIT

@@ -16,6 +16,10 @@ Other addons:
 
 PvP awareness addon for World of Warcraft Classic. EyesOnMe detects enemy players targeting you by scanning nameplates and alerts you with visual and audio cues.
 
+## Screenshots
+
+![EyesOnMe](screenshots/image.png)
+
 ## Features
 
 - **Nameplate badges** - Eye icon with red glow appears above enemy nameplates when they target you
