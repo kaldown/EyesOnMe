@@ -242,6 +242,7 @@ local function CreateDropdownRow(parent, index)
     row:SetHeight(DROPDOWN_ROW_HEIGHT)
     row:RegisterForClicks("AnyDown", "AnyUp")
     row:SetAttribute("type1", "macro")
+    row:SetAttribute("unit", "")
     row:SetAttribute("macrotext", "/targetexact nil")
 
     -- Name text
@@ -613,6 +614,7 @@ end
 local function PopulateDropdown(dropdown, entries)
     if InCombatLockdown() then return end
     -- entries = array of { name, class, unit }
+    -- unit: nameplate/group token for direct targeting, or nil for /targetexact fallback
     local count = math.min(#entries, DROPDOWN_MAX_ROWS)
     local maxWidth = 80 -- min width
 
@@ -628,8 +630,14 @@ local function PopulateDropdown(dropdown, entries)
             end
             row.text:SetText(entry.name)
 
-            -- Update secure macro (only out of combat)
-            if not InCombatLockdown() then
+            -- Update secure targeting (only out of combat — guarded by early return above)
+            if entry.unit then
+                row:SetAttribute("type1", "target")
+                row:SetAttribute("unit", entry.unit)
+                row:SetAttribute("macrotext", "")
+            else
+                row:SetAttribute("type1", "macro")
+                row:SetAttribute("unit", "")
                 row:SetAttribute("macrotext", "/targetexact " .. entry.name)
             end
 
@@ -642,9 +650,9 @@ local function PopulateDropdown(dropdown, entries)
             end
         else
             row:Hide()
-            if not InCombatLockdown() then
-                row:SetAttribute("macrotext", "/targetexact nil")
-            end
+            row:SetAttribute("type1", "macro")
+            row:SetAttribute("unit", "")
+            row:SetAttribute("macrotext", "/targetexact nil")
         end
     end
 
