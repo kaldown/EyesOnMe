@@ -10,7 +10,7 @@ local LDBIcon = LibStub("LibDBIcon-1.0")
 
 local dataObject = LDB:NewDataObject("EyesOnMe", {
     type = "launcher",
-    icon = "Interface\\Icons\\Spell_Shadow_EyeOfKilrogg",
+    icon = "Interface\\Icons\\Spell_Shadow_UnholyFrenzy",
     OnClick = function(self, button)
         if button == "LeftButton" then
             EyesOnMe:Toggle()
