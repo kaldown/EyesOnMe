@@ -9,7 +9,7 @@ Other addons:
 - [LazyProf](https://www.curseforge.com/wow/addons/lazyprof) - Profession leveling optimizer
 - [CraftLib](https://www.curseforge.com/wow/addons/craftlib) - Recipe database
 - [Silencer](https://www.curseforge.com/wow/addons/silencer-whispers) - Whisper gatekeeper
-- [VendorSniper](https://www.curseforge.com/wow/addons/vendorsniper) - Vendor restock sniper
+- [VendorSniper](https://addons.wago.io/addons/vendorsniper) - Vendor restock sniper
 - [PickMe](https://www.curseforge.com/wow/addons/pickme) - LFG listing browser
 
 ---
@@ -37,4 +37,4 @@ PvP awareness addon for World of Warcraft Classic. EyesOnMe detects enemy player
 
 ## Compatibility
 
-Works on Classic Anniversary Edition (1.15.x).
+Works on Classic Anniversary Edition (1.15.x) and TBC Classic (2.5.5).

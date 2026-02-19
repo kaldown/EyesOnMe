@@ -63,7 +63,7 @@ Right-click the minimap button to open the settings panel:
 
 ## Compatibility
 
-Works on Classic Anniversary Edition (1.15.x).
+Works on Classic Anniversary Edition (1.15.x) and TBC Classic (2.5.5).
 
 ## License
 

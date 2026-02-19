@@ -1,4 +1,4 @@
-## Interface: 11503
+## Interface: 11508, 20505
 ## Title: EyesOnMe
 ## Notes: See which players are targeting you - click to target back
 ## Author: kaldown
