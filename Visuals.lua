@@ -7,6 +7,9 @@ local ADDON_NAME, EyesOnMe = ...
 
 local BADGE_SIZE = 16
 local GLOW_SIZE = 4
+local NAMELIST_ROW_HEIGHT = 20
+local NAMELIST_PADDING = 4
+local NAMELIST_MAX_ROWS = 10
 local badges = {} -- [nameplate frame] = badge frame
 
 local function CreateBadge(nameplate)
@@ -130,6 +133,157 @@ local function HideAllFriendlyBadges()
     for _, badge in pairs(friendlyBadges) do
         badge:Hide()
     end
+end
+
+--------------------------------------------------------------
+-- Name list panel (auto-visible, pre-allocated secure rows)
+--------------------------------------------------------------
+
+local function CreateNameListRow(parent, index)
+    local row = CreateFrame("Button", parent:GetName() .. "Row" .. index,
+        parent, "SecureActionButtonTemplate")
+    row:SetHeight(NAMELIST_ROW_HEIGHT)
+    row:SetPoint("TOPLEFT", NAMELIST_PADDING, -(NAMELIST_PADDING + (index - 1) * NAMELIST_ROW_HEIGHT))
+    row:SetPoint("TOPRIGHT", -NAMELIST_PADDING, -(NAMELIST_PADDING + (index - 1) * NAMELIST_ROW_HEIGHT))
+    row:RegisterForClicks("AnyDown", "AnyUp")
+    row:SetAttribute("type1", "macro")
+    row:SetAttribute("macrotext", "/targetexact nil")
+
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    text:SetPoint("LEFT", 8, 0)
+    text:SetPoint("RIGHT", -8, 0)
+    text:SetJustifyH("LEFT")
+    row.text = text
+
+    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(1, 1, 1, 0.1)
+
+    row:Show()
+    row:SetAlpha(0)
+    return row
+end
+
+local function CreateNameListPanel(anchorParent, panelName, bgR, bgG, bgB, borderR, borderG, borderB)
+    local panel = CreateFrame("Frame", panelName, UIParent, "BackdropTemplate")
+    panel:SetPoint("TOP", anchorParent, "BOTTOM", 0, -2)
+    panel:SetFrameStrata("DIALOG")
+    panel:SetClampedToScreen(true)
+
+    panel:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    panel:SetBackdropColor(bgR, bgG, bgB, 0.92)
+    panel:SetBackdropBorderColor(borderR, borderG, borderB, 1)
+
+    panel.rows = {}
+    for i = 1, NAMELIST_MAX_ROWS do
+        panel.rows[i] = CreateNameListRow(panel, i)
+    end
+
+    panel.anchorParent = anchorParent
+    panel.activeCount = 0
+    panel:Show()
+    panel:SetAlpha(0)
+
+    return panel
+end
+
+local function RefreshNameList(panel, entries, autoShowKey)
+    if not panel or not EyesOnMeDB[autoShowKey] then
+        if panel then panel:SetAlpha(0) end
+        return
+    end
+
+    local maxVisible = EyesOnMeDB.nameListSize or 5
+    local count = math.min(#entries, maxVisible, NAMELIST_MAX_ROWS)
+    local maxWidth = 80
+
+    for i = 1, NAMELIST_MAX_ROWS do
+        local row = panel.rows[i]
+        if i <= count then
+            local entry = entries[i]
+            local color = RAID_CLASS_COLORS[entry.class]
+            if color then
+                row.text:SetTextColor(color.r, color.g, color.b)
+            else
+                row.text:SetTextColor(0.7, 0.7, 0.7)
+            end
+            row.text:SetText(entry.name)
+            row:SetAlpha(1)
+
+            if not InCombatLockdown() then
+                local u = entry.unit
+                if u and (u:find("^raid") or u:find("^party")) then
+                    row:SetAttribute("type1", "target")
+                    row:SetAttribute("unit", u)
+                    row:SetAttribute("macrotext", "")
+                else
+                    row:SetAttribute("type1", "macro")
+                    row:SetAttribute("unit", "")
+                    row:SetAttribute("macrotext", "/targetexact " .. (entry.fullName or entry.name))
+                end
+            end
+
+            local textWidth = row.text:GetStringWidth() + 16
+            if textWidth > maxWidth then
+                maxWidth = textWidth
+            end
+        else
+            row.text:SetText("")
+            row:SetAlpha(0)
+
+            if not InCombatLockdown() then
+                row:SetAttribute("type1", "macro")
+                row:SetAttribute("unit", "")
+                row:SetAttribute("macrotext", "/targetexact nil")
+            end
+        end
+    end
+
+    panel.activeCount = count
+
+    if count > 0 then
+        local totalHeight = NAMELIST_PADDING * 2 + count * NAMELIST_ROW_HEIGHT
+        local totalWidth = maxWidth + NAMELIST_PADDING * 2
+        local minWidth = panel.anchorParent and panel.anchorParent:GetWidth() or 80
+        panel:SetSize(math.max(totalWidth, minWidth), totalHeight)
+        panel:SetAlpha(1)
+    else
+        panel:SetAlpha(0)
+    end
+end
+
+local function BuildEnemyEntries()
+    local entries = {}
+    for unit, info in pairs(EyesOnMe:GetTargeters()) do
+        entries[#entries + 1] = {
+            name = info.name,
+            fullName = info.fullName or info.name,
+            class = info.class,
+            unit = unit,
+        }
+    end
+    table.sort(entries, function(a, b) return a.name < b.name end)
+    return entries
+end
+
+local function BuildFriendlyEntries()
+    local entries = {}
+    for _, info in pairs(EyesOnMe:GetFriendlyTargeters()) do
+        local unit = info.groupUnit or info.nameplateUnit
+        entries[#entries + 1] = {
+            name = info.name,
+            fullName = info.fullName or info.name,
+            class = info.class,
+            unit = unit,
+        }
+    end
+    table.sort(entries, function(a, b) return a.name < b.name end)
+    return entries
 end
 
 --------------------------------------------------------------
