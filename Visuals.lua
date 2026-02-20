@@ -159,22 +159,6 @@ local function CreateNameListRow(parent, index)
     highlight:SetAllPoints()
     highlight:SetColorTexture(1, 1, 1, 0.1)
 
-    -- PreClick syncs targeting attributes from Lua properties before the
-    -- secure action fires. SetAttribute from a hardware-click PreClick is
-    -- allowed in Classic, enabling targeting for names detected mid-combat.
-    row:SetScript("PreClick", function(self)
-        local u = self.targetUnit
-        if u and (u:find("^raid") or u:find("^party")) then
-            self:SetAttribute("type1", "target")
-            self:SetAttribute("unit", u)
-            self:SetAttribute("macrotext", "")
-        elseif self.targetFullName and self.targetFullName ~= "" then
-            self:SetAttribute("type1", "macro")
-            self:SetAttribute("unit", "")
-            self:SetAttribute("macrotext", "/targetexact " .. self.targetFullName)
-        end
-    end)
-
     row:Show()
     row:SetAlpha(0)
     return row
