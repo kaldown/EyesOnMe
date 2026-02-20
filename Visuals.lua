@@ -7,10 +7,6 @@ local ADDON_NAME, EyesOnMe = ...
 
 local BADGE_SIZE = 16
 local GLOW_SIZE = 4
-local DROPDOWN_ROW_HEIGHT = 20
-local DROPDOWN_PADDING = 4
-local DROPDOWN_MAX_ROWS = 10
-local CLICK_THRESHOLD = 5 -- pixels to differentiate click vs drag
 local badges = {} -- [nameplate frame] = badge frame
 
 local function CreateBadge(nameplate)
@@ -233,69 +229,6 @@ local function UpdateVignette(count)
 end
 
 --------------------------------------------------------------
--- Clickable dropdown panel (shared factory)
---------------------------------------------------------------
-
-local function CreateDropdownRow(parent, index)
-    local row = CreateFrame("Button", parent:GetName() .. "Row" .. index,
-        parent, "SecureActionButtonTemplate")
-    row:SetHeight(DROPDOWN_ROW_HEIGHT)
-    row:RegisterForClicks("AnyDown", "AnyUp")
-    row:SetAttribute("type1", "macro")
-    row:SetAttribute("unit", "")
-    row:SetAttribute("macrotext", "/targetexact nil")
-
-    -- Name text
-    local text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    text:SetPoint("LEFT", 8, 0)
-    text:SetPoint("RIGHT", -8, 0)
-    text:SetJustifyH("LEFT")
-    row.text = text
-
-    -- Hover highlight
-    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
-    highlight:SetAllPoints()
-    highlight:SetColorTexture(1, 1, 1, 0.1)
-
-    row:Hide()
-    return row
-end
-
-local function CreateDropdownPanel(parent, panelName, bgR, bgG, bgB, borderR, borderG, borderB)
-    -- Parent to UIParent (not counter) to avoid secure taint propagation.
-    -- SecureActionButtonTemplate children would make the counter frame protected,
-    -- blocking Show/Hide during combat. Anchor still references the counter.
-    local dropdown = CreateFrame("Frame", panelName, UIParent, "BackdropTemplate")
-    dropdown:SetPoint("TOP", parent, "BOTTOM", 0, -2)
-    dropdown:SetFrameStrata("DIALOG")
-    dropdown:SetClampedToScreen(true)
-
-    dropdown:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 12,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    dropdown:SetBackdropColor(bgR, bgG, bgB, 0.92)
-    dropdown:SetBackdropBorderColor(borderR, borderG, borderB, 1)
-
-    -- Pre-allocate button pool
-    dropdown.rows = {}
-    for i = 1, DROPDOWN_MAX_ROWS do
-        local row = CreateDropdownRow(dropdown, i)
-        row:SetPoint("TOPLEFT", DROPDOWN_PADDING, -(DROPDOWN_PADDING + (i - 1) * DROPDOWN_ROW_HEIGHT))
-        row:SetPoint("TOPRIGHT", -DROPDOWN_PADDING, -(DROPDOWN_PADDING + (i - 1) * DROPDOWN_ROW_HEIGHT))
-        dropdown.rows[i] = row
-    end
-
-    dropdown.anchorParent = parent -- store counter frame ref for width calc
-    dropdown.activeCount = 0
-    dropdown:Hide()
-
-    return dropdown
-end
-
---------------------------------------------------------------
 -- Threat counter (floating, draggable)
 --------------------------------------------------------------
 
@@ -347,33 +280,6 @@ local function CreateCounter()
         EyesOnMeDB.counterPos = { point = point, relPoint = relPoint, x = x, y = y }
     end)
 
-    -- Click detection (differentiate from drag)
-    local mouseDownX, mouseDownY
-    counterFrame:SetScript("OnMouseDown", function(self, button)
-        if button == "LeftButton" then
-            mouseDownX, mouseDownY = GetCursorPosition()
-        end
-    end)
-    counterFrame:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" and mouseDownX then
-            local x, y = GetCursorPosition()
-            local dx = math.abs(x - mouseDownX)
-            local dy = math.abs(y - mouseDownY)
-            if dx < CLICK_THRESHOLD and dy < CLICK_THRESHOLD then
-                -- It's a click, not a drag (dropdown toggle only out of combat)
-                if self.dropdown and not InCombatLockdown() then
-                    if self.dropdown:IsShown() then
-                        self.dropdown:Hide()
-                    else
-                        EyesOnMe:RefreshEnemyDropdown()
-                        self.dropdown:Show()
-                    end
-                end
-            end
-            mouseDownX, mouseDownY = nil, nil
-        end
-    end)
-
     -- Tooltip
     counterFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -394,7 +300,7 @@ local function CreateCounter()
             GameTooltip:AddLine("No enemies targeting you", 0.5, 0.5, 0.5)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Click for targets, drag to move", 0.5, 0.5, 0.5)
+        GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
         GameTooltip:Show()
     end)
     counterFrame:SetScript("OnLeave", function()
@@ -408,27 +314,6 @@ local function CreateCounter()
         counterFrame:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
     end
 
-    -- Dropdown panel
-    counterFrame.dropdown = CreateDropdownPanel(
-        counterFrame, "EyesOnMeEnemyDropdown",
-        0.15, 0.0, 0.0,   -- bg: dark red
-        0.6, 0.0, 0.0     -- border: red
-    )
-    tinsert(UISpecialFrames, "EyesOnMeEnemyDropdown")
-
-    -- PostClick: close dropdown after targeting (only out of combat to avoid taint)
-    local enemyDropdown = counterFrame.dropdown
-    for _, row in ipairs(enemyDropdown.rows) do
-        row:HookScript("PostClick", function()
-            if not InCombatLockdown() and enemyDropdown:IsShown() then
-                enemyDropdown:Hide()
-            end
-        end)
-    end
-
-    -- Use SetAlpha instead of Show/Hide to avoid combat lockdown taint.
-    -- The dropdown (containing SecureActionButtonTemplate rows) anchors to
-    -- this counter, making Show()/Hide() protected during combat.
     counterFrame:Show()
     counterFrame:SetAlpha(0)
     counterFrame:EnableMouse(false)
@@ -437,9 +322,6 @@ end
 local function UpdateCounter(count)
     if not counterFrame then return end
     if not EyesOnMeDB.showCounter or count <= 0 then
-        if counterFrame.dropdown and not InCombatLockdown() then
-            counterFrame.dropdown:Hide()
-        end
         counterFrame:SetAlpha(0)
         if not InCombatLockdown() then
             counterFrame:EnableMouse(false)
@@ -505,32 +387,6 @@ local function CreateFriendlyCounter()
         EyesOnMeDB.friendlyCounterPos = { point = point, relPoint = relPoint, x = x, y = y }
     end)
 
-    -- Click detection (differentiate from drag)
-    local mouseDownX, mouseDownY
-    friendlyCounterFrame:SetScript("OnMouseDown", function(self, button)
-        if button == "LeftButton" then
-            mouseDownX, mouseDownY = GetCursorPosition()
-        end
-    end)
-    friendlyCounterFrame:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" and mouseDownX then
-            local x, y = GetCursorPosition()
-            local dx = math.abs(x - mouseDownX)
-            local dy = math.abs(y - mouseDownY)
-            if dx < CLICK_THRESHOLD and dy < CLICK_THRESHOLD then
-                if self.dropdown and not InCombatLockdown() then
-                    if self.dropdown:IsShown() then
-                        self.dropdown:Hide()
-                    else
-                        EyesOnMe:RefreshFriendlyDropdown()
-                        self.dropdown:Show()
-                    end
-                end
-            end
-            mouseDownX, mouseDownY = nil, nil
-        end
-    end)
-
     -- Tooltip
     friendlyCounterFrame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -551,7 +407,7 @@ local function CreateFriendlyCounter()
             GameTooltip:AddLine("No friendlies targeting you", 0.5, 0.5, 0.5)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Click for targets, drag to move", 0.5, 0.5, 0.5)
+        GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
         GameTooltip:Show()
     end)
     friendlyCounterFrame:SetScript("OnLeave", function()
@@ -565,24 +421,6 @@ local function CreateFriendlyCounter()
         friendlyCounterFrame:SetPoint(pos.point, UIParent, pos.relPoint, pos.x, pos.y)
     end
 
-    -- Dropdown panel
-    friendlyCounterFrame.dropdown = CreateDropdownPanel(
-        friendlyCounterFrame, "EyesOnMeFriendlyDropdown",
-        0.0, 0.1, 0.15,   -- bg: dark teal
-        0.0, 0.4, 0.5     -- border: teal
-    )
-    tinsert(UISpecialFrames, "EyesOnMeFriendlyDropdown")
-
-    -- PostClick: close dropdown after targeting (only out of combat to avoid taint)
-    local friendlyDropdown = friendlyCounterFrame.dropdown
-    for _, row in ipairs(friendlyDropdown.rows) do
-        row:HookScript("PostClick", function()
-            if not InCombatLockdown() and friendlyDropdown:IsShown() then
-                friendlyDropdown:Hide()
-            end
-        end)
-    end
-
     friendlyCounterFrame:Show()
     friendlyCounterFrame:SetAlpha(0)
     friendlyCounterFrame:EnableMouse(false)
@@ -591,9 +429,6 @@ end
 local function UpdateFriendlyCounter(count)
     if not friendlyCounterFrame then return end
     if not EyesOnMeDB.showFriendlyCounter or count <= 0 then
-        if friendlyCounterFrame.dropdown and not InCombatLockdown() then
-            friendlyCounterFrame.dropdown:Hide()
-        end
         friendlyCounterFrame:SetAlpha(0)
         if not InCombatLockdown() then
             friendlyCounterFrame:EnableMouse(false)
@@ -605,98 +440,6 @@ local function UpdateFriendlyCounter(count)
     if not InCombatLockdown() then
         friendlyCounterFrame:EnableMouse(true)
     end
-end
-
---------------------------------------------------------------
--- Dropdown entry refresh
---------------------------------------------------------------
-
-local function PopulateDropdown(dropdown, entries)
-    if InCombatLockdown() then return end
-    -- entries = array of { name, class, unit }
-    -- unit: group token (raid/party) for direct targeting, or nameplate/nil for /targetexact fallback
-    local count = math.min(#entries, DROPDOWN_MAX_ROWS)
-    local maxWidth = 80 -- min width
-
-    for i = 1, DROPDOWN_MAX_ROWS do
-        local row = dropdown.rows[i]
-        if i <= count then
-            local entry = entries[i]
-            local color = RAID_CLASS_COLORS[entry.class]
-            if color then
-                row.text:SetTextColor(color.r, color.g, color.b)
-            else
-                row.text:SetTextColor(0.7, 0.7, 0.7)
-            end
-            row.text:SetText(entry.name)
-
-            -- Update secure targeting (only out of combat — guarded by early return above)
-            -- Use unit-token targeting only for stable group tokens (raid/party);
-            -- nameplate tokens are volatile and go stale during combat.
-            local u = entry.unit
-            if u and (u:find("^raid") or u:find("^party")) then
-                row:SetAttribute("type1", "target")
-                row:SetAttribute("unit", u)
-                row:SetAttribute("macrotext", "")
-            else
-                row:SetAttribute("type1", "macro")
-                row:SetAttribute("unit", "")
-                row:SetAttribute("macrotext", "/targetexact " .. entry.name)
-            end
-
-            row:Show()
-
-            -- Track max width
-            local textWidth = row.text:GetStringWidth() + 16
-            if textWidth > maxWidth then
-                maxWidth = textWidth
-            end
-        else
-            row:Hide()
-            row:SetAttribute("type1", "macro")
-            row:SetAttribute("unit", "")
-            row:SetAttribute("macrotext", "/targetexact nil")
-        end
-    end
-
-    dropdown.activeCount = count
-
-    -- Resize dropdown to fit
-    local totalHeight = DROPDOWN_PADDING * 2 + count * DROPDOWN_ROW_HEIGHT
-    local totalWidth = maxWidth + DROPDOWN_PADDING * 2
-    if count > 0 then
-        local minWidth = dropdown.anchorParent and dropdown.anchorParent:GetWidth() or 80
-        dropdown:SetSize(math.max(totalWidth, minWidth), totalHeight)
-    end
-end
-
-function EyesOnMe:RefreshEnemyDropdown()
-    if not counterFrame or not counterFrame.dropdown then return end
-    local entries = {}
-    for unit, info in pairs(self:GetTargeters()) do
-        entries[#entries + 1] = {
-            name = info.name,
-            class = info.class,
-            unit = unit, -- nameplate unit token
-        }
-    end
-    table.sort(entries, function(a, b) return a.name < b.name end)
-    PopulateDropdown(counterFrame.dropdown, entries)
-end
-
-function EyesOnMe:RefreshFriendlyDropdown()
-    if not friendlyCounterFrame or not friendlyCounterFrame.dropdown then return end
-    local entries = {}
-    for _, info in pairs(self:GetFriendlyTargeters()) do
-        local unit = info.groupUnit or info.nameplateUnit
-        entries[#entries + 1] = {
-            name = info.name,
-            class = info.class,
-            unit = unit,
-        }
-    end
-    table.sort(entries, function(a, b) return a.name < b.name end)
-    PopulateDropdown(friendlyCounterFrame.dropdown, entries)
 end
 
 --------------------------------------------------------------
@@ -741,18 +484,10 @@ end
 
 function EyesOnMe:OnTargeterAdded(unit, info)
     ShowBadge(unit)
-    if not InCombatLockdown()
-        and counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
-        self:RefreshEnemyDropdown()
-    end
 end
 
 function EyesOnMe:OnTargeterRemoved(unit, info)
     HideBadge(unit)
-    if not InCombatLockdown()
-        and counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
-        self:RefreshEnemyDropdown()
-    end
 end
 
 function EyesOnMe:OnThreatCountChanged(oldCount, newCount)
@@ -777,20 +512,10 @@ end
 
 function EyesOnMe:OnFriendlyAdded(unit, info)
     ShowFriendlyBadge(unit)
-    if not InCombatLockdown()
-        and friendlyCounterFrame and friendlyCounterFrame.dropdown
-        and friendlyCounterFrame.dropdown:IsShown() then
-        self:RefreshFriendlyDropdown()
-    end
 end
 
 function EyesOnMe:OnFriendlyRemoved(unit, info)
     HideFriendlyBadge(unit)
-    if not InCombatLockdown()
-        and friendlyCounterFrame and friendlyCounterFrame.dropdown
-        and friendlyCounterFrame.dropdown:IsShown() then
-        self:RefreshFriendlyDropdown()
-    end
 end
 
 function EyesOnMe:OnFriendlyEnabledChanged(enabled)
@@ -812,22 +537,9 @@ function EyesOnMe:OnCombatEnd()
     if friendlyCounterFrame then
         friendlyCounterFrame:EnableMouse(friendlyCounterFrame:GetAlpha() > 0)
     end
-    -- Refresh dropdown attributes that couldn't be updated during combat
-    if not InCombatLockdown() then
-        self:RefreshEnemyDropdown()
-        self:RefreshFriendlyDropdown()
-    end
 end
 
 function EyesOnMe:OnTargetersRefreshed()
-    if InCombatLockdown() then return end
-    if counterFrame and counterFrame.dropdown and counterFrame.dropdown:IsShown() then
-        self:RefreshEnemyDropdown()
-    end
-    if friendlyCounterFrame and friendlyCounterFrame.dropdown
-        and friendlyCounterFrame.dropdown:IsShown() then
-        self:RefreshFriendlyDropdown()
-    end
 end
 
 --------------------------------------------------------------
