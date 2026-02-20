@@ -247,10 +247,12 @@ local function RefreshNameList(panel, entries, autoShowKey)
     panel.activeCount = count
 
     if count > 0 then
-        local totalHeight = NAMELIST_PADDING * 2 + count * NAMELIST_ROW_HEIGHT
-        local totalWidth = maxWidth + NAMELIST_PADDING * 2
-        local minWidth = panel.anchorParent and panel.anchorParent:GetWidth() or 80
-        panel:SetSize(math.max(totalWidth, minWidth), totalHeight)
+        if not InCombatLockdown() then
+            local totalHeight = NAMELIST_PADDING * 2 + count * NAMELIST_ROW_HEIGHT
+            local totalWidth = maxWidth + NAMELIST_PADDING * 2
+            local minWidth = panel.anchorParent and panel.anchorParent:GetWidth() or 80
+            panel:SetSize(math.max(totalWidth, minWidth), totalHeight)
+        end
         panel:SetAlpha(1)
     else
         panel:SetAlpha(0)
