@@ -159,14 +159,19 @@ local function CreateNameListRow(parent, index)
     highlight:SetAllPoints()
     highlight:SetColorTexture(1, 1, 1, 0.1)
 
-    -- PreClick syncs macrotext from Lua property before the secure action fires.
-    -- This allows targeting even for names detected during combat, since
-    -- SetAttribute from a hardware-click PreClick is allowed in Classic.
+    -- PreClick syncs targeting attributes from Lua properties before the
+    -- secure action fires. SetAttribute from a hardware-click PreClick is
+    -- allowed in Classic, enabling targeting for names detected mid-combat.
     row:SetScript("PreClick", function(self)
-        local name = self.targetFullName
-        if name and name ~= "" then
+        local u = self.targetUnit
+        if u and (u:find("^raid") or u:find("^party")) then
+            self:SetAttribute("type1", "target")
+            self:SetAttribute("unit", u)
+            self:SetAttribute("macrotext", "")
+        elseif self.targetFullName and self.targetFullName ~= "" then
             self:SetAttribute("type1", "macro")
-            self:SetAttribute("macrotext", "/targetexact " .. name)
+            self:SetAttribute("unit", "")
+            self:SetAttribute("macrotext", "/targetexact " .. self.targetFullName)
         end
     end)
 
@@ -228,6 +233,7 @@ local function RefreshNameList(panel, entries, autoShowKey)
 
             -- Always update Lua properties (combat-safe, just table fields)
             row.targetFullName = entry.fullName or entry.name
+            row.targetUnit = entry.unit
 
             if not InCombatLockdown() then
                 local u = entry.unit
@@ -250,6 +256,7 @@ local function RefreshNameList(panel, entries, autoShowKey)
             row.text:SetText("")
             row:SetAlpha(0)
             row.targetFullName = nil
+            row.targetUnit = nil
 
             if not InCombatLockdown() then
                 row:SetAttribute("type1", "macro")
