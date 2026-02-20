@@ -198,7 +198,7 @@ local function RefreshNameList(panel, entries, autoShowKey)
         return
     end
 
-    local maxVisible = EyesOnMeDB.nameListSize or 5
+    local maxVisible = math.floor((EyesOnMeDB.nameListSize or 5) + 0.5)
     local count = math.min(#entries, maxVisible, NAMELIST_MAX_ROWS)
     local maxWidth = 80
 
@@ -487,6 +487,9 @@ local function UpdateCounter(count)
         if not InCombatLockdown() then
             counterFrame:EnableMouse(false)
         end
+        if counterFrame.nameList then
+            counterFrame.nameList:SetAlpha(0)
+        end
         return
     end
     counterFrame.text:SetText(count)
@@ -600,6 +603,9 @@ local function UpdateFriendlyCounter(count)
         friendlyCounterFrame:SetAlpha(0)
         if not InCombatLockdown() then
             friendlyCounterFrame:EnableMouse(false)
+        end
+        if friendlyCounterFrame.nameList then
+            friendlyCounterFrame.nameList:SetAlpha(0)
         end
         return
     end
