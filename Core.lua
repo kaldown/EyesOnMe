@@ -13,12 +13,12 @@ if VERSION:find("^@") then VERSION = "dev" end
 EyesOnMeDB = EyesOnMeDB or {}
 
 local isEnabled = true
-local targetingMe = {}   -- [unitToken] = { name, class, guid }
+local targetingMe = {}   -- [unitToken] = { name, fullName, class, guid }
 local threatCount = 0
 local POLL_INTERVAL = 0.5
 local pollElapsed = 0
 local friendlyEnabled = true
-local friendlyTargetingMe = {}  -- [guid] = { name, class, guid, nameplateUnit, groupUnit }
+local friendlyTargetingMe = {}  -- [guid] = { name, fullName, class, guid, nameplateUnit, groupUnit }
 local friendlyCount = 0
 
 --------------------------------------------------------------
@@ -39,6 +39,9 @@ local defaults = {
     showFriendlyCounter = true,
     lockFriendlyCounter = false,
     friendlyCounterPos = nil,
+    autoShowNameList = true,
+    autoShowFriendlyNameList = true,
+    nameListSize = 5,
     minimap = { hide = false },
 }
 
@@ -73,14 +76,16 @@ end
 --------------------------------------------------------------
 
 local function AddTargeter(unit)
-    if targetingMe[unit] then return end -- already tracked
+    if targetingMe[unit] then return end
 
-    local name = UnitName(unit)
+    local name, realm = UnitName(unit)
     local _, class = UnitClass(unit)
     local guid = UnitGUID(unit)
+    local fullName = realm and realm ~= "" and (name .. "-" .. realm) or name
 
     targetingMe[unit] = {
         name = name or "Unknown",
+        fullName = fullName or "Unknown",
         class = class or "UNKNOWN",
         guid = guid or "",
     }
@@ -88,7 +93,6 @@ local function AddTargeter(unit)
     local oldCount = threatCount
     threatCount = threatCount + 1
 
-    -- Notify visuals
     EyesOnMe:OnTargeterAdded(unit, targetingMe[unit])
     EyesOnMe:OnThreatCountChanged(oldCount, threatCount)
 end
@@ -117,20 +121,20 @@ end
 
 local function AddFriendly(guid, unit, nameplateUnit)
     if friendlyTargetingMe[guid] then
-        -- Always update nameplateUnit (clears stale token when out of nameplate range)
         friendlyTargetingMe[guid].nameplateUnit = nameplateUnit
-        -- Update group unit if this is a party/raid token
         if IsGroupUnit(unit) then
             friendlyTargetingMe[guid].groupUnit = unit
         end
         return
     end
 
-    local name = UnitName(unit)
+    local name, realm = UnitName(unit)
     local _, class = UnitClass(unit)
+    local fullName = realm and realm ~= "" and (name .. "-" .. realm) or name
 
     friendlyTargetingMe[guid] = {
         name = name or "Unknown",
+        fullName = fullName or "Unknown",
         class = class or "UNKNOWN",
         guid = guid,
         nameplateUnit = nameplateUnit,
