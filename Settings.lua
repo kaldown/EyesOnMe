@@ -67,20 +67,25 @@ local function CreateCheckbox(parent, label, dbKey, x, y, onChange)
     return cb
 end
 
-local function CreateSlider(parent, label, dbKey, x, y, minVal, maxVal, step)
+local function CreateSlider(parent, label, dbKey, x, y, minVal, maxVal, step, formatFn)
     local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
     slider:SetPoint("TOPLEFT", x, y)
     slider:SetWidth(180)
     slider:SetMinMaxValues(minVal, maxVal)
     slider:SetValueStep(step)
     slider:SetObeyStepOnDrag(true)
-    slider:SetValue(EyesOnMeDB[dbKey] or 1.0)
-    slider.Low:SetText(minVal * 100 .. "%")
-    slider.High:SetText(maxVal * 100 .. "%")
-    slider.Text:SetText(label .. ": " .. math.floor((EyesOnMeDB[dbKey] or 1.0) * 100) .. "%")
+    slider:SetValue(EyesOnMeDB[dbKey] or minVal)
+
+    if not formatFn then
+        formatFn = function(v) return math.floor(v * 100) .. "%" end
+    end
+
+    slider.Low:SetText(formatFn(minVal))
+    slider.High:SetText(formatFn(maxVal))
+    slider.Text:SetText(label .. ": " .. formatFn(EyesOnMeDB[dbKey] or minVal))
     slider:SetScript("OnValueChanged", function(self, value)
         EyesOnMeDB[dbKey] = value
-        self.Text:SetText(label .. ": " .. math.floor(value * 100) .. "%")
+        self.Text:SetText(label .. ": " .. formatFn(value))
         EyesOnMe:RefreshVisuals()
     end)
     return slider
@@ -88,7 +93,7 @@ end
 
 local function CreateSettingsPanel()
     settingsFrame = CreateFrame("Frame", "EyesOnMeSettings", UIParent, "BackdropTemplate")
-    settingsFrame:SetSize(280, 450)
+    settingsFrame:SetSize(280, 540)
     settingsFrame:SetPoint("CENTER")
     settingsFrame:SetFrameStrata("DIALOG")
     settingsFrame:SetMovable(true)
@@ -138,6 +143,8 @@ local function CreateSettingsPanel()
     CreateCheckbox(settingsFrame, "Sound alerts", "soundAlerts", 16, y)
     y = y - 30
     CreateCheckbox(settingsFrame, "Lock counter position", "lockCounter", 16, y)
+    y = y - 30
+    CreateCheckbox(settingsFrame, "Auto-show target list", "autoShowNameList", 16, y)
     y = y - 40
 
     -- Vignette intensity slider
@@ -160,6 +167,19 @@ local function CreateSettingsPanel()
     CreateCheckbox(settingsFrame, "Show friendly counter", "showFriendlyCounter", 16, y)
     y = y - 30
     CreateCheckbox(settingsFrame, "Lock friendly counter", "lockFriendlyCounter", 16, y)
+    y = y - 30
+    CreateCheckbox(settingsFrame, "Auto-show friendly list", "autoShowFriendlyNameList", 16, y)
+
+    -- === Name List Section ===
+    y = y - 20
+    local listHeader = settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    listHeader:SetPoint("TOPLEFT", 16, y)
+    listHeader:SetText("Name List")
+    listHeader:SetTextColor(0.8, 0.8, 0.8)
+
+    y = y - 27
+    CreateSlider(settingsFrame, "Max names shown", "nameListSize", 50, y, 1, 10, 1,
+        function(v) return tostring(math.floor(v)) end)
 
     tinsert(UISpecialFrames, "EyesOnMeSettings")
 end
