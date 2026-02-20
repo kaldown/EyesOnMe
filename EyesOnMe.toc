@@ -1,6 +1,6 @@
 ## Interface: 11508, 20505
 ## Title: EyesOnMe
-## Notes: See which players are targeting you - click to target back
+## Notes: See which players are targeting you - click names to target back
 ## Author: kaldown
 ## Version: 0.3.0
 ## IconTexture: Interface\Icons\Spell_Shadow_UnholyFrenzy
