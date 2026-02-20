@@ -471,6 +471,13 @@ local function CreateCounter()
     counterFrame:Show()
     counterFrame:SetAlpha(0)
     counterFrame:EnableMouse(false)
+
+    -- Name list panel
+    counterFrame.nameList = CreateNameListPanel(
+        counterFrame, "EyesOnMeEnemyNameList",
+        0.15, 0.0, 0.0,   -- bg: dark red
+        0.6, 0.0, 0.0     -- border: red
+    )
 end
 
 local function UpdateCounter(count)
@@ -578,6 +585,13 @@ local function CreateFriendlyCounter()
     friendlyCounterFrame:Show()
     friendlyCounterFrame:SetAlpha(0)
     friendlyCounterFrame:EnableMouse(false)
+
+    -- Name list panel
+    friendlyCounterFrame.nameList = CreateNameListPanel(
+        friendlyCounterFrame, "EyesOnMeFriendlyNameList",
+        0.0, 0.1, 0.15,   -- bg: dark teal
+        0.0, 0.4, 0.5     -- border: teal
+    )
 end
 
 local function UpdateFriendlyCounter(count)
@@ -638,10 +652,16 @@ end
 
 function EyesOnMe:OnTargeterAdded(unit, info)
     ShowBadge(unit)
+    if counterFrame and counterFrame.nameList then
+        RefreshNameList(counterFrame.nameList, BuildEnemyEntries(), "autoShowNameList")
+    end
 end
 
 function EyesOnMe:OnTargeterRemoved(unit, info)
     HideBadge(unit)
+    if counterFrame and counterFrame.nameList then
+        RefreshNameList(counterFrame.nameList, BuildEnemyEntries(), "autoShowNameList")
+    end
 end
 
 function EyesOnMe:OnThreatCountChanged(oldCount, newCount)
@@ -661,21 +681,36 @@ function EyesOnMe:OnEnabledChanged(enabled)
         UpdateVignette(0)
         HideAllFriendlyBadges()
         UpdateFriendlyCounter(0)
+        if counterFrame and counterFrame.nameList then
+            counterFrame.nameList:SetAlpha(0)
+        end
+        if friendlyCounterFrame and friendlyCounterFrame.nameList then
+            friendlyCounterFrame.nameList:SetAlpha(0)
+        end
     end
 end
 
 function EyesOnMe:OnFriendlyAdded(unit, info)
     ShowFriendlyBadge(unit)
+    if friendlyCounterFrame and friendlyCounterFrame.nameList then
+        RefreshNameList(friendlyCounterFrame.nameList, BuildFriendlyEntries(), "autoShowFriendlyNameList")
+    end
 end
 
 function EyesOnMe:OnFriendlyRemoved(unit, info)
     HideFriendlyBadge(unit)
+    if friendlyCounterFrame and friendlyCounterFrame.nameList then
+        RefreshNameList(friendlyCounterFrame.nameList, BuildFriendlyEntries(), "autoShowFriendlyNameList")
+    end
 end
 
 function EyesOnMe:OnFriendlyEnabledChanged(enabled)
     if not enabled then
         HideAllFriendlyBadges()
         UpdateFriendlyCounter(0)
+        if friendlyCounterFrame and friendlyCounterFrame.nameList then
+            friendlyCounterFrame.nameList:SetAlpha(0)
+        end
     end
 end
 
@@ -684,16 +719,27 @@ function EyesOnMe:OnFriendlyCountChanged(oldCount, newCount)
 end
 
 function EyesOnMe:OnCombatEnd()
-    -- Sync mouse state deferred from combat (EnableMouse is protected on tainted frames)
     if counterFrame then
         counterFrame:EnableMouse(counterFrame:GetAlpha() > 0)
     end
     if friendlyCounterFrame then
         friendlyCounterFrame:EnableMouse(friendlyCounterFrame:GetAlpha() > 0)
     end
+    if counterFrame and counterFrame.nameList then
+        RefreshNameList(counterFrame.nameList, BuildEnemyEntries(), "autoShowNameList")
+    end
+    if friendlyCounterFrame and friendlyCounterFrame.nameList then
+        RefreshNameList(friendlyCounterFrame.nameList, BuildFriendlyEntries(), "autoShowFriendlyNameList")
+    end
 end
 
 function EyesOnMe:OnTargetersRefreshed()
+    if counterFrame and counterFrame.nameList then
+        RefreshNameList(counterFrame.nameList, BuildEnemyEntries(), "autoShowNameList")
+    end
+    if friendlyCounterFrame and friendlyCounterFrame.nameList then
+        RefreshNameList(friendlyCounterFrame.nameList, BuildFriendlyEntries(), "autoShowFriendlyNameList")
+    end
 end
 
 --------------------------------------------------------------
@@ -727,4 +773,12 @@ function EyesOnMe:RefreshVisuals()
 
     -- Refresh friendly counter
     UpdateFriendlyCounter(self:GetFriendlyCount())
+
+    -- Refresh name lists
+    if counterFrame and counterFrame.nameList then
+        RefreshNameList(counterFrame.nameList, BuildEnemyEntries(), "autoShowNameList")
+    end
+    if friendlyCounterFrame and friendlyCounterFrame.nameList then
+        RefreshNameList(friendlyCounterFrame.nameList, BuildFriendlyEntries(), "autoShowFriendlyNameList")
+    end
 end
