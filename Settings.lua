@@ -93,7 +93,7 @@ end
 
 local function CreateSettingsPanel()
     settingsFrame = CreateFrame("Frame", "EyesOnMeSettings", UIParent, "BackdropTemplate")
-    settingsFrame:SetSize(280, 540)
+    settingsFrame:SetSize(280, 620)
     settingsFrame:SetPoint("CENTER")
     settingsFrame:SetFrameStrata("DIALOG")
     settingsFrame:SetMovable(true)
@@ -134,6 +134,10 @@ local function CreateSettingsPanel()
         EyesOnMe:SetEnabled(checked)
     end)
     y = y - 30
+    CreateCheckbox(settingsFrame, "Players only", "playersOnly", 16, y, function(checked)
+        EyesOnMe:SetPlayersOnly(checked)
+    end)
+    y = y - 30
     CreateCheckbox(settingsFrame, "Show nameplate badges", "showBadges", 16, y)
     y = y - 30
     CreateCheckbox(settingsFrame, "Show threat counter", "showCounter", 16, y)
@@ -171,7 +175,7 @@ local function CreateSettingsPanel()
     CreateCheckbox(settingsFrame, "Auto-show friendly list", "autoShowFriendlyNameList", 16, y)
 
     -- === Name List Section ===
-    y = y - 20
+    y = y - 40
     local listHeader = settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     listHeader:SetPoint("TOPLEFT", 16, y)
     listHeader:SetText("Name List")
@@ -185,6 +189,7 @@ local function CreateSettingsPanel()
 end
 
 function EyesOnMe:ToggleSettings()
+    if InCombatLockdown() then return end
     if not settingsFrame then
         CreateSettingsPanel()
     end
@@ -202,10 +207,30 @@ end
 SLASH_EYESONME1 = "/eom"
 
 SlashCmdList["EYESONME"] = function(msg)
-    EyesOnMe:Toggle()
-    local status = EyesOnMe:IsAddonEnabled()
-        and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
-    print("|cFFCC3333[EyesOnMe]|r " .. status)
+    msg = (msg or ""):trim():lower()
+
+    if msg == "debug on" then
+        EyesOnMe:SetDebugMode(true)
+    elseif msg == "debug off" then
+        EyesOnMe:SetDebugMode(false)
+    elseif msg == "debug" or msg == "debug report" then
+        EyesOnMe:DebugReport()
+    elseif msg == "debug clear" then
+        EyesOnMeDB.debugLog = {}
+        print("|cFFCC3333[EyesOnMe]|r Debug log cleared")
+    elseif msg == "" then
+        EyesOnMe:Toggle()
+        local status = EyesOnMe:IsAddonEnabled()
+            and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+        print("|cFFCC3333[EyesOnMe]|r " .. status)
+    else
+        print("|cFFCC3333[EyesOnMe]|r Commands:")
+        print("  /eom - Toggle on/off")
+        print("  /eom debug on - Start collecting diagnostic data")
+        print("  /eom debug off - Stop collecting")
+        print("  /eom debug - Show report")
+        print("  /eom debug clear - Clear collected data")
+    end
 end
 
 --------------------------------------------------------------

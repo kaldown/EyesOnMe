@@ -159,23 +159,33 @@ local function CreateNameListRow(parent, index)
     highlight:SetAllPoints()
     highlight:SetColorTexture(1, 1, 1, 0.1)
 
-    -- PreClick syncs targeting from Lua properties before the secure action.
-    -- Generates ADDON_ACTION_BLOCKED in combat but targeting still works.
-    row:SetScript("PreClick", function(self)
-        local u = self.targetUnit
-        if u and (u:find("^raid") or u:find("^party")) then
-            self:SetAttribute("type1", "target")
-            self:SetAttribute("unit", u)
-            self:SetAttribute("macrotext", "")
-        elseif self.targetFullName and self.targetFullName ~= "" then
-            self:SetAttribute("type1", "macro")
-            self:SetAttribute("unit", "")
-            self:SetAttribute("macrotext", "/targetexact " .. self.targetFullName)
-        end
+    -- PostClick: diagnostic logging for targeting investigation
+    -- Safe during combat (Lua callback, not a protected function)
+    row:SetScript("PostClick", function(self)
+        if not EyesOnMe:IsDebugMode() then return end
+        local side = self:GetParent():GetName():find("Friendly") and "friendly" or "enemy"
+        local eu = self.targetUnit
+        local euExists = eu and eu ~= "" and UnitExists(eu) and true or false
+        local euIsPlayer = euExists and UnitIsPlayer(eu) and true or false
+        local euName = euExists and UnitName(eu) or nil
+        local plateExists = eu and eu ~= "" and C_NamePlate.GetNamePlateForUnit(eu) and true or false
+        EyesOnMe:DebugLogClick({
+            side = side,
+            row = index,
+            displayName = self.text:GetText() or "",
+            expectedName = self.targetFullName or "",
+            expectedUnit = eu or "",
+            attrType = self:GetAttribute("type1") or "",
+            attrUnit = self:GetAttribute("unit") or "",
+            attrMacro = self:GetAttribute("macrotext") or "",
+            unitExists = euExists,
+            unitIsPlayer = euIsPlayer,
+            unitName = euName,
+            plateExists = plateExists,
+        })
     end)
 
-    row:Show()
-    row:SetAlpha(0)
+    row:Hide()
     return row
 end
 
@@ -201,49 +211,86 @@ local function CreateNameListPanel(anchorParent, panelName, bgR, bgG, bgB, borde
 
     panel.anchorParent = anchorParent
     panel.activeCount = 0
-    panel:Show()
-    panel:SetAlpha(0)
+    panel:Hide()
 
     return panel
 end
 
+-- Combat-safe visibility for panels that parent secure children.
+-- Show/Hide/EnableMouse/SetSize are ALL protected on secure frames and
+-- their parent frames in Classic Anniversary. Only SetAlpha/SetText/
+-- SetTextColor are safe during combat.
+local function SetPanelVisible(panel, visible)
+    if not panel then return end
+    if visible then
+        panel:SetAlpha(1)
+        if not InCombatLockdown() then
+            panel:Show()
+        end
+    else
+        panel:SetAlpha(0)
+        if not InCombatLockdown() then
+            panel:Hide()
+        end
+    end
+end
+
 local function RefreshNameList(panel, entries, autoShowKey)
     if not panel or not EyesOnMeDB[autoShowKey] then
-        if panel then panel:SetAlpha(0) end
+        SetPanelVisible(panel, false)
         return
     end
 
     local maxVisible = math.floor((EyesOnMeDB.nameListSize or 5) + 0.5)
     local count = math.min(#entries, maxVisible, NAMELIST_MAX_ROWS)
     local maxWidth = 80
+    local inCombat = InCombatLockdown()
 
     for i = 1, NAMELIST_MAX_ROWS do
         local row = panel.rows[i]
         if i <= count then
             local entry = entries[i]
-            local color = RAID_CLASS_COLORS[entry.class]
-            if color then
-                row.text:SetTextColor(color.r, color.g, color.b)
+            if entry.isPlayer == false then
+                row.text:SetTextColor(0.5, 0.5, 0.5)
             else
-                row.text:SetTextColor(0.7, 0.7, 0.7)
+                local color = RAID_CLASS_COLORS[entry.class]
+                if color then
+                    row.text:SetTextColor(color.r, color.g, color.b)
+                else
+                    row.text:SetTextColor(0.7, 0.7, 0.7)
+                end
             end
             row.text:SetText(entry.name)
             row:SetAlpha(1)
+            if not inCombat then
+                row:Show()
+            end
 
             -- Always update Lua properties (combat-safe, just table fields)
             row.targetFullName = entry.fullName or entry.name
             row.targetUnit = entry.unit
 
-            if not InCombatLockdown() then
-                local u = entry.unit
-                if u and (u:find("^raid") or u:find("^party")) then
-                    row:SetAttribute("type1", "target")
-                    row:SetAttribute("unit", u)
-                    row:SetAttribute("macrotext", "")
-                else
+            if not inCombat then
+                local isEnemy = (autoShowKey == "autoShowNameList")
+                if isEnemy then
+                    -- Enemy: /targetexact macro (BGE-proven approach)
+                    -- Name-based targeting is stable across nameplate recycles
+                    -- Works in BG (Name-Realm), open world (Name), arena
                     row:SetAttribute("type1", "macro")
                     row:SetAttribute("unit", "")
                     row:SetAttribute("macrotext", "/targetexact " .. (entry.fullName or entry.name))
+                else
+                    -- Friendly: stable group unit IDs when available
+                    local u = entry.unit
+                    if u and (u:find("^raid") or u:find("^party")) then
+                        row:SetAttribute("type1", "target")
+                        row:SetAttribute("unit", u)
+                        row:SetAttribute("macrotext", "")
+                    else
+                        row:SetAttribute("type1", "macro")
+                        row:SetAttribute("unit", "")
+                        row:SetAttribute("macrotext", "/targetexact " .. (entry.fullName or entry.name))
+                    end
                 end
             end
 
@@ -257,7 +304,8 @@ local function RefreshNameList(panel, entries, autoShowKey)
             row.targetFullName = nil
             row.targetUnit = nil
 
-            if not InCombatLockdown() then
+            if not inCombat then
+                row:Hide()
                 row:SetAttribute("type1", "macro")
                 row:SetAttribute("unit", "")
                 row:SetAttribute("macrotext", "/targetexact nil")
@@ -268,15 +316,15 @@ local function RefreshNameList(panel, entries, autoShowKey)
     panel.activeCount = count
 
     if count > 0 then
-        if not InCombatLockdown() then
+        if not inCombat then
             local totalHeight = NAMELIST_PADDING * 2 + count * NAMELIST_ROW_HEIGHT
             local totalWidth = maxWidth + NAMELIST_PADDING * 2
             local minWidth = panel.anchorParent and panel.anchorParent:GetWidth() or 80
             panel:SetSize(math.max(totalWidth, minWidth), totalHeight)
         end
-        panel:SetAlpha(1)
+        SetPanelVisible(panel, true)
     else
-        panel:SetAlpha(0)
+        SetPanelVisible(panel, false)
     end
 end
 
@@ -288,6 +336,7 @@ local function BuildEnemyEntries()
             fullName = info.fullName or info.name,
             class = info.class,
             unit = unit,
+            isPlayer = info.isPlayer,
         }
     end
     table.sort(entries, function(a, b) return a.name < b.name end)
@@ -510,9 +559,7 @@ local function UpdateCounter(count)
         if not InCombatLockdown() then
             counterFrame:EnableMouse(false)
         end
-        if counterFrame.nameList then
-            counterFrame.nameList:SetAlpha(0)
-        end
+        SetPanelVisible(counterFrame.nameList, false)
         return
     end
     counterFrame.text:SetText(count)
@@ -627,9 +674,7 @@ local function UpdateFriendlyCounter(count)
         if not InCombatLockdown() then
             friendlyCounterFrame:EnableMouse(false)
         end
-        if friendlyCounterFrame.nameList then
-            friendlyCounterFrame.nameList:SetAlpha(0)
-        end
+        SetPanelVisible(friendlyCounterFrame.nameList, false)
         return
     end
     friendlyCounterFrame.text:SetText(count)
@@ -710,12 +755,8 @@ function EyesOnMe:OnEnabledChanged(enabled)
         UpdateVignette(0)
         HideAllFriendlyBadges()
         UpdateFriendlyCounter(0)
-        if counterFrame and counterFrame.nameList then
-            counterFrame.nameList:SetAlpha(0)
-        end
-        if friendlyCounterFrame and friendlyCounterFrame.nameList then
-            friendlyCounterFrame.nameList:SetAlpha(0)
-        end
+        SetPanelVisible(counterFrame and counterFrame.nameList, false)
+        SetPanelVisible(friendlyCounterFrame and friendlyCounterFrame.nameList, false)
     end
 end
 
@@ -737,14 +778,31 @@ function EyesOnMe:OnFriendlyEnabledChanged(enabled)
     if not enabled then
         HideAllFriendlyBadges()
         UpdateFriendlyCounter(0)
-        if friendlyCounterFrame and friendlyCounterFrame.nameList then
-            friendlyCounterFrame.nameList:SetAlpha(0)
-        end
+        SetPanelVisible(friendlyCounterFrame and friendlyCounterFrame.nameList, false)
     end
 end
 
 function EyesOnMe:OnFriendlyCountChanged(oldCount, newCount)
     UpdateFriendlyCounter(newCount)
+end
+
+-- Hide unused secure rows before lockdown takes effect.
+-- PLAYER_REGEN_DISABLED fires just before lockdown, so Hide() still works here.
+function EyesOnMe:OnCombatStart()
+    local function hideUnusedRows(panel)
+        if not panel then return end
+        for i = 1, NAMELIST_MAX_ROWS do
+            local row = panel.rows[i]
+            if row:GetAlpha() == 0 then
+                row:Hide()
+            end
+        end
+        if panel:GetAlpha() == 0 then
+            panel:Hide()
+        end
+    end
+    if counterFrame then hideUnusedRows(counterFrame.nameList) end
+    if friendlyCounterFrame then hideUnusedRows(friendlyCounterFrame.nameList) end
 end
 
 function EyesOnMe:OnCombatEnd()
@@ -754,6 +812,7 @@ function EyesOnMe:OnCombatEnd()
     if friendlyCounterFrame then
         friendlyCounterFrame:EnableMouse(friendlyCounterFrame:GetAlpha() > 0)
     end
+    -- Full refresh with Show/Hide now safe outside combat
     if counterFrame and counterFrame.nameList then
         RefreshNameList(counterFrame.nameList, BuildEnemyEntries(), "autoShowNameList")
     end
