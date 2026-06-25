@@ -10,7 +10,6 @@ externals:
 ignore:
   - .git
   - .github
-  - .claude
   - docs
   - screenshots
   - Makefile
